@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import AssessmentResultModal from '../components/AssessmentResultModal'
 import { usePatient } from '../hooks/usePatients'
 import { useCreateAssessment } from '../hooks/useAssessments'
@@ -37,6 +37,8 @@ const INITIAL: FormState = {
 export default function CreateAssessmentPage() {
   const { id: patientId } = useParams<{ id: string }>()
   const navigate          = useNavigate()
+  const { pathname }      = useLocation()
+  const base              = pathname.startsWith('/admin') ? '/admin' : ''
 
   const [form, setForm] = useState<FormState>(INITIAL)
   const [result, setResult] = useState<Assessment | null>(null)
@@ -71,7 +73,7 @@ export default function CreateAssessmentPage() {
   }
 
   function handleModalClose() {
-    navigate(`/patients/${patientId}`)
+    navigate(`${base}/patients/${patientId}`)
   }
 
   // ── Loading / error states ──────────────────────────────────────────────────
@@ -95,9 +97,9 @@ export default function CreateAssessmentPage() {
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-gray-500">
-          <Link to="/patients" className="hover:text-primary transition-colors">Patients</Link>
+          <Link to={`${base}/patients`} className="hover:text-primary transition-colors">Patients</Link>
           <span>/</span>
-          <Link to={`/patients/${patientId}`} className="hover:text-primary transition-colors">
+          <Link to={`${base}/patients/${patientId}`} className="hover:text-primary transition-colors">
             {patient.full_name}
           </Link>
           <span>/</span>

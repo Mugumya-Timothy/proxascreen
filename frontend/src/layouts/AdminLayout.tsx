@@ -9,22 +9,22 @@ import type { NavItem } from './_SidebarShell'
 const NAV_ITEMS: NavItem[] = [
   {
     label: 'Dashboard',
-    to:    '/dashboard',
+    to:    '/admin/dashboard',
     icon:  <IconDashboard />,
   },
   {
     label: 'Patients',
-    to:    '/patients',
+    to:    '/admin/patients',
     icon:  <IconPatients />,
   },
   {
     label: 'Clinicians',
-    to:    '/clinicians',
+    to:    '/admin/clinicians',
     icon:  <IconClinicians />,
   },
   {
     label: 'Add Patient',
-    to:    '/patients/new',
+    to:    '/admin/patients/new',
     icon:  <IconAddPatient />,
   },
 ]

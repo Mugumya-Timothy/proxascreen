@@ -1,4 +1,4 @@
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import RiskBadge from '../../components/RiskBadge'
 import { usePatient } from '../../hooks/usePatients'
@@ -8,6 +8,8 @@ import type { Assessment, Patient } from '../../types'
 export default function PatientDetailPage() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/admin') ? '/admin' : ''
 
   const { user } = useUser()
   const clinicianName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown Clinician'
@@ -33,7 +35,7 @@ export default function PatientDetailPage() {
     <div className="space-y-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/patients" className="hover:text-primary transition-colors">Patients</Link>
+        <Link to={`${base}/patients`} className="hover:text-primary transition-colors">Patients</Link>
         <span>/</span>
         <span className="text-gray-900 font-medium">{patient.full_name}</span>
       </nav>
@@ -58,7 +60,7 @@ export default function PatientDetailPage() {
               </p>
             </div>
           </div>
-          <Link to={`/patients/${patient.id}/assessments/new`} className="btn-primary shrink-0">
+          <Link to={`${base}/patients/${patient.id}/assessments/new`} className="btn-primary shrink-0">
             + New Assessment
           </Link>
         </div>
@@ -79,7 +81,7 @@ export default function PatientDetailPage() {
         {assessments.length === 0 ? (
           <div className="rounded-2xl bg-white px-6 py-12 text-center shadow-sm ring-1 ring-gray-100">
             <p className="text-sm text-gray-400">No assessments yet.</p>
-            <Link to={`/patients/${patient.id}/assessments/new`} className="btn-primary mt-4 inline-flex">
+            <Link to={`${base}/patients/${patient.id}/assessments/new`} className="btn-primary mt-4 inline-flex">
               Run First Assessment
             </Link>
           </div>

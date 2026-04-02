@@ -19,10 +19,11 @@ const fetchCurrentUser = (): Promise<User> =>
  * Fetches the signed-in user's profile from the backend.
  * Returns the full User object including role and password-reset status.
  */
-export function useCurrentUser() {
+export function useCurrentUser(enabled = true) {
   return useQuery({
     queryKey: AUTH_KEYS.currentUser,
     queryFn:  fetchCurrentUser,
+    enabled,
     retry:    1,
   })
 }

@@ -33,9 +33,8 @@ export default {
         },
       },
       fontFamily: {
-        // Anika is a custom font — place Anika.woff2 (and .woff) in
-        // src/assets/fonts/ and the @font-face in index.css will pick it up.
-        sans: ['Anika', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Andika is loaded via Google Fonts in index.html
+        sans: ['Andika', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl:  '0.875rem',

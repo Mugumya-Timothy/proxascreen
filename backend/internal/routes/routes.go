@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,11 @@ import (
 )
 
 func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
+	r.Use(middleware.CORS([]string{
+		"http://localhost:5173",
+		"http://localhost:5174",
+	}))
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -32,7 +38,13 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 
 	// ── Authenticated base group ───────────────────────────────────────────────
 	auth := r.Group("/api/v1")
-	auth.Use(middleware.RequireAuth(cfg.ClerkSecretKey))
+	auth.Use(middleware.RequireAuth(cfg.ClerkSecretKey, func(ctx context.Context, clerkID string) (string, error) {
+		user, err := userService.GetUserByClerkID(ctx, clerkID)
+		if err != nil {
+			return "", err
+		}
+		return user.Role, nil
+	}))
 
 	// ── Handler instances ─────────────────────────────────────────────────────
 	clinicianHandler := handlers.NewClinicianHandler(userService)

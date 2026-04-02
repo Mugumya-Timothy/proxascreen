@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import AssessmentResultModal from '../../components/AssessmentResultModal'
 import { useCreatePatient } from '../../hooks/usePatients'
 import type { Assessment } from '../../types'
@@ -38,6 +38,8 @@ const INITIAL: FormState = {
 
 export default function AddPatientPage() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/admin') ? '/admin' : ''
   const [form, setForm]       = useState<FormState>(INITIAL)
   const [result, setResult]   = useState<Assessment | null>(null)
   const [patientId, setPatientId] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export default function AddPatientPage() {
   }
 
   function handleModalClose() {
-    navigate(`/patients/${patientId}`)
+    navigate(`${base}/patients/${patientId}`)
   }
 
   return (
@@ -81,7 +83,7 @@ export default function AddPatientPage() {
       <div className="mx-auto max-w-2xl space-y-8">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-gray-500">
-          <Link to="/patients" className="hover:text-primary transition-colors">Patients</Link>
+          <Link to={`${base}/patients`} className="hover:text-primary transition-colors">Patients</Link>
           <span>/</span>
           <span className="text-gray-900 font-medium">Add Patient</span>
         </nav>
@@ -216,7 +218,7 @@ export default function AddPatientPage() {
             >
               {mutation.isPending ? 'Running Assessment…' : 'Add Patient & Run Assessment'}
             </button>
-            <Link to="/patients" className="btn-outline">
+            <Link to={`${base}/patients`} className="btn-outline">
               Cancel
             </Link>
           </div>

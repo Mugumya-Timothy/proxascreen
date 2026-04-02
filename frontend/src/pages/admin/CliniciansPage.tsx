@@ -20,7 +20,7 @@ export default function CliniciansPage() {
             {isLoading ? '—' : `${clinicians.length} total clinician${clinicians.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Link to="/clinicians/new" className="btn-primary">
+        <Link to="/admin/clinicians/new" className="btn-primary">
           + Add Clinician
         </Link>
       </div>

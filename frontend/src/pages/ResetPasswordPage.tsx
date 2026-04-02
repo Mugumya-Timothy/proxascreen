@@ -9,10 +9,14 @@ export default function ResetPasswordPage() {
   const { user }   = useUser()
   const navigate   = useNavigate()
 
-  const [newPassword,     setNewPassword]     = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error,           setError]           = useState('')
-  const [success,         setSuccess]         = useState(false)
+  const isAdmin = (user?.publicMetadata as { role?: string })?.role === 'admin'
+
+  const [newPassword,       setNewPassword]       = useState('')
+  const [confirmPassword,   setConfirmPassword]   = useState('')
+  const [showNew,           setShowNew]           = useState(false)
+  const [showConfirm,       setShowConfirm]       = useState(false)
+  const [error,             setError]             = useState('')
+  const [success,           setSuccess]           = useState(false)
 
   const { mutate: resetPassword, isPending } = useResetPassword()
 
@@ -36,7 +40,7 @@ export default function ResetPasswordPage() {
       {
         onSuccess: () => {
           setSuccess(true)
-          setTimeout(() => navigate('/dashboard', { replace: true }), 2000)
+          setTimeout(() => navigate(isAdmin ? '/admin/dashboard' : '/dashboard', { replace: true }), 2000)
         },
         onError: (err) => {
           setError(
@@ -50,123 +54,142 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      {/* Subtle background accents */}
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-10"
+      style={{ background: 'linear-gradient(135deg, #f0f9fe 0%, #f8fffe 50%, #f0fdf8 100%)' }}>
+
+      {/* Background orbs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-secondary/10 blur-3xl" />
+        <div className="absolute -top-40 -right-40 h-[420px] w-[420px] rounded-full bg-primary/10 blur-[80px]" />
+        <div className="absolute -bottom-40 -left-40 h-[420px] w-[420px] rounded-full bg-secondary/10 blur-[80px]" />
       </div>
 
-      <div className="relative w-full max-w-md">
-        {/* ── Card ─────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white px-8 py-10 shadow-xl ring-1 ring-gray-100">
-
-          {/* Icon + heading */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+      <div className="relative w-full max-w-[440px]">
+        <div
+          className="rounded-3xl bg-white px-10 py-10"
+          style={{
+            boxShadow: '0 8px 40px 0 rgba(87,190,235,0.10), 0 1.5px 8px 0 rgba(0,0,0,0.06)',
+            border: '1px solid rgba(87,190,235,0.13)',
+          }}
+        >
+          {/* ── Header ──────────────────────────────────────────────── */}
+          <div className="mb-7 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full"
+              style={{ background: 'rgba(87,190,235,0.12)' }}>
               <LockIcon className="h-7 w-7 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold text-gray-900">Set your password</h1>
-            <p className="mt-2 text-sm text-gray-500 leading-relaxed">
-              Hi <strong>{firstName}</strong>! Your account was set up by an administrator.
+            <h1 className="text-[22px] font-semibold tracking-tight text-gray-900">Set your password</h1>
+            <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              Hi <strong className="text-gray-600">{firstName}</strong>! Your account was set up by an administrator.
               Please create a new password before continuing.
             </p>
           </div>
 
-          {/* Success state */}
+          {/* ── Success state ────────────────────────────────────────── */}
           {success ? (
-            <div className="rounded-xl bg-secondary/10 px-5 py-6 text-center ring-1 ring-secondary/30">
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/20">
+            <div className="rounded-2xl px-5 py-6 text-center ring-1"
+              style={{ background: 'rgba(88,198,151,0.08)', borderColor: 'rgba(88,198,151,0.25)' }}>
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full"
+                style={{ background: 'rgba(88,198,151,0.15)' }}>
                 <CheckIcon className="h-5 w-5 text-secondary" />
               </div>
               <p className="font-semibold text-gray-900">Password updated!</p>
-              <p className="mt-1 text-sm text-gray-500">Redirecting you to your dashboard…</p>
+              <p className="mt-1 text-sm text-gray-400">Redirecting you to your dashboard…</p>
             </div>
           ) : (
-            /* Form */
-            <form onSubmit={handleSubmit} noValidate className="space-y-5">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+
               {/* New password */}
-              <div>
-                <label htmlFor="new-password" className="label">
+              <div className="space-y-1.5">
+                <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">
                   New password
                 </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Minimum 8 characters"
-                  className="input"
-                  disabled={isPending}
-                />
-                {newPassword.length > 0 && (
-                  <PasswordStrength password={newPassword} />
-                )}
+                <div className="relative">
+                  <input
+                    id="new-password"
+                    type={showNew ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-11 text-sm text-gray-900 placeholder-gray-300 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                    disabled={isPending}
+                  />
+                  <button type="button" onClick={() => setShowNew((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-300 hover:text-gray-500 transition-colors"
+                    aria-label={showNew ? 'Hide password' : 'Show password'}>
+                    <EyeIcon open={showNew} />
+                  </button>
+                </div>
+                {newPassword.length > 0 && <PasswordStrength password={newPassword} />}
               </div>
 
               {/* Confirm password */}
-              <div>
-                <label htmlFor="confirm-password" className="label">
+              <div className="space-y-1.5">
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
                   Confirm new password
                 </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter your password"
-                  className={[
-                    'input',
-                    confirmPassword.length > 0 && confirmPassword !== newPassword
-                      ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
-                      : '',
-                  ].join(' ')}
-                  disabled={isPending}
-                />
+                <div className="relative">
+                  <input
+                    id="confirm-password"
+                    type={showConfirm ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className={[
+                      'w-full rounded-xl border bg-white px-4 py-3 pr-11 text-sm text-gray-900 placeholder-gray-300 outline-none transition disabled:opacity-50',
+                      confirmPassword.length > 0 && confirmPassword !== newPassword
+                        ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+                        : 'border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20',
+                    ].join(' ')}
+                    disabled={isPending}
+                  />
+                  <button type="button" onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-300 hover:text-gray-500 transition-colors"
+                    aria-label={showConfirm ? 'Hide password' : 'Show password'}>
+                    <EyeIcon open={showConfirm} />
+                  </button>
+                </div>
                 {confirmPassword.length > 0 && confirmPassword === newPassword && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-secondary">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                    Passwords match
+                  <p className="flex items-center gap-1 text-xs text-secondary">
+                    <CheckIcon className="h-3.5 w-3.5" /> Passwords match
                   </p>
                 )}
               </div>
 
               {/* Error */}
               {error && (
-                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
-                  {error}
+                <div className="flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 ring-1 ring-red-100">
+                  <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
 
               {/* Submit */}
-              <button
-                type="submit"
-                disabled={isPending}
-                className="btn-primary w-full py-2.5 text-base"
-              >
-                {isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Spinner />
-                    Updating…
-                  </span>
-                ) : (
-                  'Set new password'
-                )}
-              </button>
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+                  style={{
+                    background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(87,190,235,0.35)',
+                  }}
+                >
+                  {isPending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Spinner /> Updating…
+                    </span>
+                  ) : (
+                    'Set new password'
+                  )}
+                </button>
+              </div>
             </form>
           )}
         </div>
-
-        {/* Hint */}
-        {!success && (
-          <p className="mt-4 text-center text-xs text-gray-400">
-            Use at least 8 characters with a mix of letters and numbers for a stronger password.
-          </p>
-        )}
       </div>
     </div>
   )
@@ -205,6 +228,33 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 // ── Inline icons ──────────────────────────────────────────────────────────────
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+    </svg>
+  ) : (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function AlertIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className ?? 'h-4 w-4'} fill="none"
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+  )
+}
 
 function LockIcon({ className }: { className?: string }) {
   return (

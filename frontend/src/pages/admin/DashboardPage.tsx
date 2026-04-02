@@ -64,16 +64,16 @@ export default function DashboardPage() {
       <div>
         <h2 className="mb-4 text-sm font-semibold text-gray-700">Quick actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/clinicians/new" className="btn-primary">
+          <Link to="/admin/clinicians/new" className="btn-primary">
             + Add Clinician
           </Link>
-          <Link to="/patients/new" className="btn-outline">
+          <Link to="/admin/patients/new" className="btn-outline">
             + Add Patient
           </Link>
-          <Link to="/patients" className="btn-outline">
+          <Link to="/admin/patients" className="btn-outline">
             View All Patients
           </Link>
-          <Link to="/clinicians" className="btn-outline">
+          <Link to="/admin/clinicians" className="btn-outline">
             View All Clinicians
           </Link>
         </div>

@@ -1,28 +1,3 @@
-/* ── Anika custom font ────────────────────────────────────────────────────────
-   Place Anika.woff2 (and optionally Anika.woff) in src/assets/fonts/.
-   If Anika is available through a CDN or Google Fonts, replace the @font-face
-   block with the appropriate @import or <link> tag instead.
-   ────────────────────────────────────────────────────────────────────────── */
-@font-face {
-  font-family: 'Anika';
-  src:
-    url('./assets/fonts/Anika.woff2') format('woff2'),
-    url('./assets/fonts/Anika.woff')  format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Anika';
-  src:
-    url('./assets/fonts/Anika-Bold.woff2') format('woff2'),
-    url('./assets/fonts/Anika-Bold.woff')  format('woff');
-  font-weight: bold;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* ── Tailwind layers ──────────────────────────────────────────────────────── */
 @tailwind base;
 @tailwind components;

@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import RiskBadge from '../components/RiskBadge'
 import { useAssessment } from '../hooks/useAssessments'
@@ -10,6 +10,8 @@ import { generateAssessmentPDF } from '../utils/generatePDF'
 export default function AssessmentDetailPage() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/admin') ? '/admin' : ''
   const { user } = useUser()
   const clinicianName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown Clinician'
 
@@ -44,11 +46,11 @@ export default function AssessmentDetailPage() {
 
       {/* Breadcrumb */}
       <nav className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-        <Link to="/patients" className="hover:text-primary transition-colors">Patients</Link>
+        <Link to={`${base}/patients`} className="hover:text-primary transition-colors">Patients</Link>
         {patient && (
           <>
             <span>/</span>
-            <Link to={`/patients/${patient.id}`} className="hover:text-primary transition-colors">
+            <Link to={`${base}/patients/${patient.id}`} className="hover:text-primary transition-colors">
               {patient.full_name}
             </Link>
           </>

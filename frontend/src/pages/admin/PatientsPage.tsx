@@ -57,7 +57,7 @@ export default function PatientsPage() {
             <UploadIcon className="mr-1.5 h-4 w-4" />
             Bulk Import
           </button>
-          <Link to="/patients/new" className="btn-primary">
+          <Link to="/admin/patients/new" className="btn-primary">
             + Add Patient
           </Link>
         </div>
@@ -140,7 +140,7 @@ function PatientRow({ patient: p }: { patient: Patient }) {
       </td>
       <td className="whitespace-nowrap px-5 py-4 text-right">
         <Link
-          to={`/patients/${p.id}`}
+          to={`/admin/patients/${p.id}`}
           className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
         >
           View →

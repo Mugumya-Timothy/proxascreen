@@ -40,11 +40,16 @@ export default function SidebarShell({ navItems }: Props) {
       <aside className="flex w-64 shrink-0 flex-col bg-white shadow-[1px_0_0_0_#f3f4f6]">
 
         {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-gray-100 px-5">
+        <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-5" style={{ gap: '10px' }}>
           <LogoMark />
-          <span className="text-lg font-bold tracking-tight text-gray-900">
-            Proxa<span className="text-primary">Screen</span>
-          </span>
+          <div className="flex flex-col items-start">
+            <span style={{ fontSize: '20px', lineHeight: 1, color: '#57BEEB', letterSpacing: 0 }}>
+              <span style={{ fontWeight: 400 }}>Proxa</span><span style={{ fontWeight: 600 }}>Screen</span>
+            </span>
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8a8a8a', marginTop: '3px' }}>
+              Prostate Cancer Risk Screening
+            </span>
+          </div>
         </div>
 
         {/* Nav */}
@@ -57,7 +62,7 @@ export default function SidebarShell({ navItems }: Props) {
               <li key={item.to}>
                 <NavLink
                   to={item.to}
-                  end={item.to === '/dashboard'}
+                  end={item.to === '/dashboard' || item.to.endsWith('/dashboard')}
                   className={({ isActive }) =>
                     [
                       'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-100',
@@ -134,19 +139,7 @@ export default function SidebarShell({ navItems }: Props) {
 
 function LogoMark() {
   return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none"
-      xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect width="30" height="30" rx="8" fill="#57BEEB" />
-      <path
-        d="M8 15 C8 10 11.5 7.5 15 7.5 C18.5 7.5 22 10 22 15 C22 20 18.5 22.5 15 22.5"
-        stroke="white" strokeWidth="2" strokeLinecap="round" fill="none"
-      />
-      <circle cx="15" cy="15" r="2.8" fill="white" />
-      <path
-        d="M15 22.5 C12.5 22.5 10 21 8 18.5"
-        stroke="#58C697" strokeWidth="2" strokeLinecap="round" fill="none"
-      />
-    </svg>
+    <img src="/logo.png" alt="ProxaScreen logo" width={30} height={30} className="shrink-0" />
   )
 }
 

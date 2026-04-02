@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8081'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+
+type AuthTokenGetter = () => Promise<string | null>
+
+let authTokenGetter: AuthTokenGetter | null = null
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -9,20 +13,23 @@ export const api = axios.create({
   },
 })
 
+export function setAuthTokenGetter(getter: AuthTokenGetter | null) {
+  authTokenGetter = getter
+}
+
 // ── Request interceptor: attach Clerk JWT to every request ───────────────────
-//
-// Clerk sets window.Clerk once the <ClerkProvider> initialises.
-// session.getToken() returns a fresh JWT (cached by Clerk until near expiry).
 api.interceptors.request.use(async (config) => {
+  if (!authTokenGetter) {
+    return config
+  }
+
   try {
-    // window.Clerk is typed as `any` by the browser SDK; cast through unknown.
-    const clerk = (window as unknown as { Clerk?: { session?: { getToken: () => Promise<string | null> } } }).Clerk
-    const token = await clerk?.session?.getToken()
+    const token = await authTokenGetter()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
   } catch {
-    // If Clerk hasn't initialised yet (e.g. public routes), skip silently.
+    // If token resolution fails, let the request continue and surface the API error.
   }
   return config
 })

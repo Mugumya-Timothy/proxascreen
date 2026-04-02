@@ -23,9 +23,11 @@ type customClaims struct {
 	Role string `json:"role"`
 }
 
+type RoleResolver func(ctx context.Context, clerkID string) (string, error)
+
 // RequireAuth verifies the Clerk Bearer JWT and sets clerk_id + role on the
 // Gin context. Returns 401 on missing/invalid token.
-func RequireAuth(clerkSecretKey string) gin.HandlerFunc {
+func RequireAuth(clerkSecretKey string, resolveRole RoleResolver) gin.HandlerFunc {
 	clerk.SetKey(clerkSecretKey)
 
 	return func(c *gin.Context) {
@@ -49,6 +51,13 @@ func RequireAuth(clerkSecretKey string) gin.HandlerFunc {
 		role := ""
 		if cc, ok := claims.Custom.(*customClaims); ok {
 			role = cc.Role
+		}
+
+		if resolveRole != nil {
+			resolvedRole, err := resolveRole(c.Request.Context(), claims.Subject)
+			if err == nil && resolvedRole != "" {
+				role = resolvedRole
+			}
 		}
 
 		c.Set(ContextKeyClerkID, claims.Subject)

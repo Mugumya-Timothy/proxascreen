@@ -1,5 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useUser } from '@clerk/clerk-react'
+import { Routes, Route } from 'react-router-dom'
 
 import ProtectedRoute    from './components/ProtectedRoute'
 import AdminLayout       from './layouts/AdminLayout'
@@ -7,6 +6,8 @@ import ClinicianLayout   from './layouts/ClinicianLayout'
 
 // ── Pages ─────────────────────────────────────────────────────────────────────
 import LoginPage             from './pages/LoginPage'
+import WelcomePage           from './pages/WelcomePage'
+import ForgotPasswordPage    from './pages/ForgotPasswordPage'
 import ResetPasswordPage     from './pages/ResetPasswordPage'
 import NotFoundPage          from './pages/NotFoundPage'
 
@@ -30,11 +31,12 @@ export default function App() {
   return (
     <Routes>
       {/* ── Public ─────────────────────────────────────────────────────── */}
-      <Route path="/sign-in" element={<LoginPage />} />
-      <Route path="/"        element={<Navigate to="/dashboard" replace />} />
+      <Route path="/sign-in"         element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/"                element={<WelcomePage />} />
 
-      {/* ── Admin routes (must be before clinician — both share path "/dashboard" etc.) */}
-      <Route element={<ProtectedRoute requiredRole="admin" />}>
+      {/* ── Admin routes (prefix /admin to avoid path conflicts with clinician routes) */}
+      <Route path="/admin" element={<ProtectedRoute requiredRole="admin" />}>
         <Route element={<AdminLayout />}>
           <Route path="dashboard"                         element={<AdminDashboardPage />} />
           <Route path="patients"                          element={<AdminPatientsPage />} />
@@ -49,7 +51,10 @@ export default function App() {
       </Route>
 
       {/* ── Clinician routes ───────────────────────────────────────────── */}
-      <Route element={<ProtectedRoute requiredRole="clinician" />}>
+      {/* path="/" acts as the SPA root prefix; relative children resolve to */}
+      {/* /dashboard, /patients, etc. WelcomePage at path="/" is a leaf     */}
+      {/* (no children) so it only matches exactly "/", no conflict here.   */}
+      <Route path="/" element={<ProtectedRoute requiredRole="clinician" />}>
         <Route element={<ClinicianLayout />}>
           <Route path="dashboard"                         element={<ClinicianDashboardPage />} />
           <Route path="patients"                          element={<ClinicianPatientsPage />} />

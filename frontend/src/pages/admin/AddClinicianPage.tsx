@@ -67,7 +67,7 @@ export default function AddClinicianPage() {
               Add Another Clinician
             </button>
             <button
-              onClick={() => navigate('/clinicians')}
+              onClick={() => navigate('/admin/clinicians')}
               className="btn-outline"
             >
               Back to Clinicians
@@ -82,7 +82,7 @@ export default function AddClinicianPage() {
     <div className="mx-auto max-w-2xl space-y-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/clinicians" className="hover:text-primary transition-colors">Clinicians</Link>
+        <Link to="/admin/clinicians" className="hover:text-primary transition-colors">Clinicians</Link>
         <span>/</span>
         <span className="text-gray-900 font-medium">Add Clinician</span>
       </nav>
@@ -172,7 +172,7 @@ export default function AddClinicianPage() {
           >
             {mutation.isPending ? 'Creating…' : 'Create Clinician'}
           </button>
-          <Link to="/clinicians" className="btn-outline">
+          <Link to="/admin/clinicians" className="btn-outline">
             Cancel
           </Link>
         </div>

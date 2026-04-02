@@ -6,8 +6,21 @@ import { Provider as ReduxProvider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import App from './App'
+import ApiAuthSync from './components/ApiAuthSync'
 import { store } from './store'
 import './index.css'
+
+// ── Unregister any stale service workers ──────────────────────────────────────
+// This project does not use a service worker. Any registered SW (e.g. from a
+// previous build or browser cache) can serve outdated assets and produce the
+// Workbox "navigation route not matched" warning. Clear them on every boot.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const reg of registrations) {
+      reg.unregister()
+    }
+  })
+}
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
 
@@ -34,9 +47,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       >
       <ReduxProvider store={store}>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <ApiAuthSync>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <App />
+            </BrowserRouter>
+          </ApiAuthSync>
         </QueryClientProvider>
       </ReduxProvider>
     </ClerkProvider>

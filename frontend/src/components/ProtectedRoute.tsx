@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth, useUser } from '@clerk/clerk-react'
+import { useAuth } from '@clerk/clerk-react'
+import { useCurrentUser } from '../hooks/useAuth'
 
 type Props = {
   /**
@@ -37,7 +38,11 @@ type Props = {
  */
 export default function ProtectedRoute({ requiredRole, children }: Props) {
   const { isLoaded, isSignedIn } = useAuth()
-  const { user }                  = useUser()
+  const {
+    data: currentUser,
+    isLoading: isCurrentUserLoading,
+    isError: isCurrentUserError,
+  } = useCurrentUser(isSignedIn)
 
   // ── 1. Clerk is still initialising ───────────────────────────────────────
   if (!isLoaded) {
@@ -53,12 +58,29 @@ export default function ProtectedRoute({ requiredRole, children }: Props) {
     return <Navigate to="/sign-in" replace />
   }
 
-  // ── 3. Role check ─────────────────────────────────────────────────────────
+  // ── 3. Backend profile is still loading ──────────────────────────────────
+  if (isCurrentUserLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  // ── 4. Backend profile could not be resolved ─────────────────────────────
+  if (isCurrentUserError || !currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <div className="max-w-md rounded-2xl border border-red-100 bg-white p-6 text-center shadow-sm">
+          <h1 className="text-lg font-semibold text-gray-900">Something went wrong!</h1>
+        </div>
+      </div>
+    )
+  }
+
+  // ── 5. Role check ─────────────────────────────────────────────────────────
   if (requiredRole) {
-    const role = (user?.publicMetadata as { role?: string })?.role as
-      | 'admin'
-      | 'clinician'
-      | undefined
+    const role = currentUser.role
 
     const permitted =
       requiredRole === 'admin'
@@ -66,11 +88,10 @@ export default function ProtectedRoute({ requiredRole, children }: Props) {
         : role === 'clinician' || role === 'admin' // admin passes clinician gates
 
     if (!permitted) {
-      // Send to the user's own correct dashboard rather than a generic 403.
-      return <Navigate to="/dashboard" replace />
+      return <Navigate to={role === 'admin' ? '/admin/dashboard' : '/dashboard'} replace />
     }
   }
 
-  // ── 4. Authorised ─────────────────────────────────────────────────────────
+  // ── 6. Authorised ─────────────────────────────────────────────────────────
   return <>{children ?? <Outlet />}</>
 }
