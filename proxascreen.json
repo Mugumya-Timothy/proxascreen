@@ -1,0 +1,665 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "ProxaScreen API",
+    "description": "Complete API collection for the ProxaScreen backend. Set the `clerk_token` variable to a valid Clerk JWT before sending authenticated requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "clerk_token",
+      "value": "",
+      "type": "string",
+      "description": "Clerk session JWT. Obtain from the browser console: await window.Clerk.session.getToken()"
+    },
+    {
+      "key": "patient_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a patient returned by POST /api/v1/patients or GET /api/v1/patients"
+    },
+    {
+      "key": "assessment_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of an assessment returned by POST /api/v1/patients/:id/assessments or GET /api/v1/assessments/:id"
+    },
+    {
+      "key": "clinician_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a clinician record returned by GET /api/v1/clinicians"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{clerk_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Liveness check. Returns 200 with {\"status\":\"ok\"} when the API is running."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "description": "Unauthenticated endpoints consumed by Clerk. The API verifies the svix-id, svix-timestamp, and svix-signature headers against CLERK_WEBHOOK_SECRET.",
+      "item": [
+        {
+          "name": "Clerk Webhook",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "svix-id",
+                "value": "msg_example123",
+                "description": "Provided by Clerk/svix. Do not fabricate in production — the signature check will fail."
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "1700000000",
+                "description": "Unix timestamp provided by Clerk/svix."
+              },
+              {
+                "key": "svix-signature",
+                "value": "v1,BASE64SIGNATURE",
+                "description": "HMAC signature provided by Clerk/svix."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"user.created\",\n  \"data\": {\n    \"id\": \"user_2abc\",\n    \"email_addresses\": [\n      { \"email_address\": \"jane.doe@clinic.com\" }\n    ],\n    \"first_name\": \"Jane\",\n    \"last_name\": \"Doe\",\n    \"phone_numbers\": [\n      { \"phone_number\": \"+441234567890\" }\n    ],\n    \"public_metadata\": {\n      \"role\": \"clinician\",\n      \"temp_password\": \"TempPass123!\"\n    }\n  }\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/clerk",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "clerk"]
+            },
+            "description": "Receives user.created and user.updated events from Clerk and upserts the user record in the local database. Signature verification using svix headers is enforced. This endpoint is called exclusively by Clerk — not by the frontend."
+          },
+          "response": [
+            {
+              "name": "200 user.created — acknowledged",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"received\":true}"
+            },
+            {
+              "name": "401 Invalid signature",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"invalid signature\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Endpoints for the authenticated user's profile and password management. Both roles (clinician and admin) can access these.",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Returns the authenticated user's profile as stored in the local database (id, full_name, email, phone, role, is_password_reset)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"clerk_id\": \"user_2abc\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane.doe@clinic.com\",\n  \"phone\": \"+441234567890\",\n  \"role\": \"clinician\",\n  \"is_password_reset\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"NewSecurePass123!\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "reset-password"]
+            },
+            "description": "Updates the caller's Clerk password, sets is_password_reset=true in the database, and sends a confirmation email via Resend. Minimum password length is 8 characters. Called on first login when is_password_reset is false."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"message\":\"password updated successfully\"}"
+            },
+            {
+              "name": "400 Validation error",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"Key: 'resetPasswordRequest.NewPassword' Error:Field validation for 'NewPassword' failed on the 'min' tag\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Aggregate statistics endpoints. Admin stats require the admin role; clinician stats are scoped to the authenticated clinician.",
+      "item": [
+        {
+          "name": "Admin Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "stats"]
+            },
+            "description": "Returns platform-wide counts: total clinicians, total patients, total assessments, and total high-risk assessments. Requires admin role."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"total_clinicians\": 12,\n  \"total_patients\": 340,\n  \"total_assessments\": 891,\n  \"total_high_risk\": 47\n}"
+            }
+          ]
+        },
+        {
+          "name": "Clinician Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/clinician-stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "clinician-stats"]
+            },
+            "description": "Returns stats scoped to the authenticated clinician: distinct patients seen, total assessments run, and counts of High and Low risk outcomes. Available to both clinician and admin roles."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"total_patients\": 28,\n  \"total_assessments\": 75,\n  \"high_risk_count\": 9,\n  \"low_risk_count\": 41\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Patients",
+      "description": "Patient management. List, create, and retrieve patients. Bulk import is admin-only. All other routes require clinician or admin role.",
+      "item": [
+        {
+          "name": "List Patients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients"]
+            },
+            "description": "Returns all patients visible to the authenticated user, each with a latest_risk_level field derived from their most recent assessment."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"patient_number\": \"P-00001\",\n    \"full_name\": \"John Smith\",\n    \"age\": 63,\n    \"date_of_submission\": \"2026-03-20\",\n    \"created_by\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"created_at\": \"2026-03-20T10:30:00Z\",\n    \"updated_at\": \"2026-03-20T10:30:00Z\",\n    \"latest_risk_level\": \"High\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create Patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('patient_id', json.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Smith\",\n  \"age\": 63,\n  \"date_of_submission\": \"2026-03-20\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients"]
+            },
+            "description": "Creates a new patient record. The patient is linked to the authenticated clinician. date_of_submission is optional and defaults to the current date. Returns a 201 with the created patient including its auto-generated patient_number (e.g. P-00001)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"patient_number\": \"P-00001\",\n  \"full_name\": \"John Smith\",\n  \"age\": 63,\n  \"date_of_submission\": \"2026-03-20\",\n  \"created_by\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"created_at\": \"2026-03-20T10:30:00Z\",\n  \"updated_at\": \"2026-03-20T10:30:00Z\",\n  \"latest_risk_level\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Patient",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients/{{patient_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients", "{{patient_id}}"]
+            },
+            "description": "Retrieves a single patient by UUID, including the full assessments array sorted by created_at descending."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"patient_number\": \"P-00001\",\n  \"full_name\": \"John Smith\",\n  \"age\": 63,\n  \"date_of_submission\": \"2026-03-20\",\n  \"created_by\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"created_at\": \"2026-03-20T10:30:00Z\",\n  \"updated_at\": \"2026-03-20T10:30:00Z\",\n  \"latest_risk_level\": \"High\",\n  \"assessments\": [\n    {\n      \"id\": \"660e8400-e29b-41d4-a716-446655440002\",\n      \"patient_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n      \"clinician_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"age\": 63,\n      \"bmi\": 28.4,\n      \"smoker\": true,\n      \"diet_type\": \"fatty\",\n      \"physical_activity_level\": \"low\",\n      \"family_history\": true,\n      \"regular_health_checkup\": false,\n      \"prostate_exam_done\": false,\n      \"risk_level\": \"High\",\n      \"low_percentage\": 12.3,\n      \"medium_percentage\": 21.4,\n      \"high_percentage\": 66.3,\n      \"created_at\": \"2026-03-20T10:45:00Z\",\n      \"updated_at\": \"2026-03-20T10:45:00Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"patient not found\"}"
+            }
+          ]
+        },
+        {
+          "name": "List Patient Assessments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients/{{patient_id}}/assessments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients", "{{patient_id}}", "assessments"]
+            },
+            "description": "Returns only the assessments array for a patient. Equivalent to the assessments field in GET /api/v1/patients/:id but without the patient wrapper."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"660e8400-e29b-41d4-a716-446655440002\",\n    \"patient_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"clinician_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"age\": 63,\n    \"bmi\": 28.4,\n    \"smoker\": true,\n    \"diet_type\": \"fatty\",\n    \"physical_activity_level\": \"low\",\n    \"family_history\": true,\n    \"regular_health_checkup\": false,\n    \"prostate_exam_done\": false,\n    \"risk_level\": \"High\",\n    \"low_percentage\": 12.3,\n    \"medium_percentage\": 21.4,\n    \"high_percentage\": 66.3,\n    \"created_at\": \"2026-03-20T10:45:00Z\",\n    \"updated_at\": \"2026-03-20T10:45:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Bulk Import Patients (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV or XLSX file. Required columns (header row, case-insensitive): full_name, age, date_of_submission, bmi, smoker, diet_type, physical_activity_level, family_history, regular_health_checkup, prostate_exam_done"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients/bulk-import",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients", "bulk-import"]
+            },
+            "description": "Admin-only. Accepts a multipart/form-data upload with a single `file` field containing a CSV or XLSX. Each row creates one patient and one assessment. Rows with errors are reported individually but do not abort the import. Returns an array of per-row results."
+          },
+          "response": [
+            {
+              "name": "200 OK — partial or full success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  { \"row\": 2, \"patient_number\": \"P-00010\", \"risk_level\": \"Low\" },\n  { \"row\": 3, \"patient_number\": \"P-00011\", \"risk_level\": \"High\" },\n  { \"row\": 4, \"error\": \"invalid diet_type value: 'unhealthy'\" }\n]"
+            },
+            {
+              "name": "400 Bad Request — missing file",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"file field required\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Assessments",
+      "description": "Create and retrieve individual prostate cancer risk assessments. Creating an assessment submits the clinical inputs to the model service and persists the prediction result.",
+      "item": [
+        {
+          "name": "Create Assessment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('assessment_id', json.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"age\": 63,\n  \"bmi\": 28.4,\n  \"smoker\": true,\n  \"diet_type\": \"fatty\",\n  \"physical_activity_level\": \"low\",\n  \"family_history\": true,\n  \"regular_health_checkup\": false,\n  \"prostate_exam_done\": false\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/patients/{{patient_id}}/assessments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "patients", "{{patient_id}}", "assessments"]
+            },
+            "description": "Runs a risk prediction for the specified patient. The backend forwards the inputs to the model service, persists the result, and returns the full assessment record including risk_level and the three probability percentages.\n\nField constraints:\n- diet_type: fatty | mixed | healthy\n- physical_activity_level: low | moderate | high\n- age and bmi must be > 0"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"660e8400-e29b-41d4-a716-446655440002\",\n  \"patient_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"clinician_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"age\": 63,\n  \"bmi\": 28.4,\n  \"smoker\": true,\n  \"diet_type\": \"fatty\",\n  \"physical_activity_level\": \"low\",\n  \"family_history\": true,\n  \"regular_health_checkup\": false,\n  \"prostate_exam_done\": false,\n  \"risk_level\": \"High\",\n  \"low_percentage\": 12.3,\n  \"medium_percentage\": 21.4,\n  \"high_percentage\": 66.3,\n  \"created_at\": \"2026-03-20T10:45:00Z\",\n  \"updated_at\": \"2026-03-20T10:45:00Z\"\n}"
+            },
+            {
+              "name": "400 Invalid diet_type",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"Key: 'createAssessmentRequest.DietType' Error:Field validation for 'DietType' failed on the 'oneof' tag\"}"
+            }
+          ]
+        },
+        {
+          "name": "Get Assessment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assessments/{{assessment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "assessments", "{{assessment_id}}"]
+            },
+            "description": "Retrieves a single assessment by UUID."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"660e8400-e29b-41d4-a716-446655440002\",\n  \"patient_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"clinician_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"age\": 63,\n  \"bmi\": 28.4,\n  \"smoker\": true,\n  \"diet_type\": \"fatty\",\n  \"physical_activity_level\": \"low\",\n  \"family_history\": true,\n  \"regular_health_checkup\": false,\n  \"prostate_exam_done\": false,\n  \"risk_level\": \"High\",\n  \"low_percentage\": 12.3,\n  \"medium_percentage\": 21.4,\n  \"high_percentage\": 66.3,\n  \"created_at\": \"2026-03-20T10:45:00Z\",\n  \"updated_at\": \"2026-03-20T10:45:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"assessment not found\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Clinicians",
+      "description": "Clinician management. All routes are admin-only.",
+      "item": [
+        {
+          "name": "List Clinicians",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clinicians",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clinicians"]
+            },
+            "description": "Returns all clinician accounts. Admin role required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"clerk_id\": \"user_2abc\",\n    \"full_name\": \"Jane Doe\",\n    \"email\": \"jane.doe@clinic.com\",\n    \"phone\": \"+441234567890\",\n    \"role\": \"clinician\",\n    \"is_password_reset\": false\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create Clinician",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('clinician_id', json.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"email\": \"jane.doe@clinic.com\",\n  \"phone\": \"+441234567890\",\n  \"temp_password\": \"TempPass123!\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/clinicians",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clinicians"]
+            },
+            "description": "Admin-only. Creates a new Clerk user with the clinician role, sets the temporary password, stores role metadata, and persists the user in the local database via the Clerk webhook. The clinician will be prompted to reset their password on first login."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440003\",\n  \"clerk_id\": \"user_3xyz\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane.doe@clinic.com\",\n  \"phone\": \"+441234567890\",\n  \"role\": \"clinician\",\n  \"is_password_reset\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Clinician",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clinicians/{{clinician_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clinicians", "{{clinician_id}}"]
+            },
+            "description": "Retrieves a single clinician record by UUID. Admin role required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"clerk_id\": \"user_2abc\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane.doe@clinic.com\",\n  \"phone\": \"+441234567890\",\n  \"role\": \"clinician\",\n  \"is_password_reset\": true\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"clinician not found\"}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Clinician",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clinicians/{{clinician_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clinicians", "{{clinician_id}}"]
+            },
+            "description": "Admin-only. Deletes the clinician from both the local database and Clerk. Returns 204 No Content on success."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"error\":\"clinician not found\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
