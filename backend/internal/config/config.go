@@ -31,7 +31,7 @@ func Load() *Config {
 		ClerkWebhookSecret:  mustGet("CLERK_WEBHOOK_SECRET"),
 		ResendAPIKey:        mustGet("RESEND_API_KEY"),
 		ModelServiceURL:     getOrDefault("MODEL_SERVICE_URL", "http://model-service:8000"),
-		AppURL:              getOrDefault("APP_URL", "http://localhost:5173"),
+		AppURL:              getOrDefault("APP_URL", "https://proxascreen.me"),
 		Port:                getOrDefault("PORT", "8081"),
 	}
 
