@@ -19,10 +19,10 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-gray-900">Assessment Complete</h2>
             <p className="mt-0.5 text-xs text-gray-500">Prostate cancer risk prediction result</p>
@@ -36,57 +36,70 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-6 space-y-6">
-          {/* Risk level */}
-          <div className="flex flex-col items-center gap-3 rounded-xl bg-gray-50 py-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Predicted Risk Level
-            </p>
-            <RiskBadge level={assessment.risk_level} size="lg" />
-          </div>
+        {/* Body — two-column landscape layout */}
+        <div className="grid grid-cols-2 divide-x divide-gray-100 px-0">
 
-          {/* Probability breakdown */}
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Probability Breakdown
-            </p>
-            <div className="space-y-3">
-              {BAR_CONFIG.map(({ label, key, color }) => {
-                const pct = assessment[key]
-                return (
-                  <div key={key}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-sm text-gray-700">{label}</span>
-                      <span className="text-sm font-semibold tabular-nums text-gray-900">
-                        {pct.toFixed(1)}%
-                      </span>
+          {/* Left column: risk level + probability bars */}
+          <div className="space-y-5 px-6 py-5">
+            {/* Risk level */}
+            <div className="flex flex-col items-center gap-2 rounded-xl bg-gray-50 py-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Predicted Risk Level
+              </p>
+              <RiskBadge level={assessment.risk_level} size="lg" />
+            </div>
+
+            {/* Probability breakdown */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Probability Breakdown
+              </p>
+              <div className="space-y-3">
+                {BAR_CONFIG.map(({ label, key, color }) => {
+                  const pct = assessment[key]
+                  return (
+                    <div key={key}>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-sm text-gray-700">{label}</span>
+                        <span className="text-sm font-semibold tabular-nums text-gray-900">
+                          {pct.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${color}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${color}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Key features summary */}
-          <div className="rounded-xl bg-gray-50 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Key Factors Recorded
-            </p>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <FactRow label="BMI"           value={assessment.bmi.toFixed(1)} />
-              <FactRow label="Smoker"        value={assessment.smoker ? 'Yes' : 'No'} />
-              <FactRow label="Diet type"     value={capitalize(assessment.diet_type)} />
-              <FactRow label="Activity"      value={capitalize(assessment.physical_activity_level)} />
-              <FactRow label="Family Hx"     value={assessment.family_history ? 'Yes' : 'No'} />
-              <FactRow label="Prostate exam" value={assessment.prostate_exam_done ? 'Yes' : 'No'} />
-            </dl>
+          {/* Right column: key factors */}
+          <div className="flex flex-col justify-between px-6 py-5">
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Key Factors Recorded
+              </p>
+              <dl className="space-y-2.5">
+                {[
+                  { label: 'BMI',           value: assessment.bmi.toFixed(1) },
+                  { label: 'Smoker',        value: assessment.smoker ? 'Yes' : 'No' },
+                  { label: 'Diet type',     value: capitalize(assessment.diet_type) },
+                  { label: 'Activity',      value: capitalize(assessment.physical_activity_level) },
+                  { label: 'Family Hx',     value: assessment.family_history ? 'Yes' : 'No' },
+                  { label: 'Prostate exam', value: assessment.prostate_exam_done ? 'Yes' : 'No' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between rounded-lg bg-gray-50 px-3.5 py-2.5">
+                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className="text-sm font-semibold text-gray-900">{value}</span>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </div>
         </div>
 
@@ -98,15 +111,6 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
         </div>
       </div>
     </div>
-  )
-}
-
-function FactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="font-medium text-gray-900">{value}</dd>
-    </>
   )
 }
 
