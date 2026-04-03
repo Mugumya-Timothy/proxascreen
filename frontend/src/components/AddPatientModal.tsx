@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import AssessmentResultModal from './AssessmentResultModal'
 import { useCreatePatient } from '../hooks/usePatients'
+import { useServicesHealth } from '../hooks/useDashboard'
 import type { Assessment } from '../types'
 
 const DIET_OPTIONS     = ['fatty', 'mixed', 'healthy'] as const
@@ -50,6 +51,9 @@ export default function AddPatientModal({
   const [result, setResult]       = useState<Assessment | null>(null)
   const [patientId, setPatientId] = useState<string | null>(null)
   const mutation                  = useCreatePatient()
+
+  const { data: health, isLoading: healthLoading } = useServicesHealth()
+  const modelOnline = !healthLoading && health?.model_service.status === 'online'
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -216,18 +220,37 @@ export default function AddPatientModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4 shrink-0">
-            <button type="button" onClick={onClose} className="btn-outline">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="add-patient-modal-form"
-              disabled={mutation.isPending}
-              className="btn-primary min-w-[200px]"
-            >
-              {mutation.isPending ? 'Running Assessment…' : 'Add Patient & Run Assessment'}
-            </button>
+          <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 shrink-0">
+
+            {/* Model offline banner */}
+            {!healthLoading && !modelOnline && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" xmlns="http://www.w3.org/2000/svg"
+                  fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  <span className="font-semibold">Model service is offline.</span>{' '}
+                  Assessments are unavailable right now. Please try again once the model service is back online.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              <button type="button" onClick={onClose} className="btn-outline">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-patient-modal-form"
+                disabled={mutation.isPending || !modelOnline}
+                title={!modelOnline ? 'Model service is offline' : undefined}
+                className="btn-primary min-w-[200px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {mutation.isPending ? 'Running Assessment…' : 'Add Patient & Run Assessment'}
+              </button>
+            </div>
           </div>
 
         </div>
