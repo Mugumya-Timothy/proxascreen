@@ -48,7 +48,7 @@ export default function ProtectedRoute({ requiredRole, children }: Props) {
   if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
-        <span className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <LogoSpinner />
       </div>
     )
   }
@@ -62,7 +62,7 @@ export default function ProtectedRoute({ requiredRole, children }: Props) {
   if (isCurrentUserLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
-        <span className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <LogoSpinner />
       </div>
     )
   }
@@ -140,4 +140,23 @@ export default function ProtectedRoute({ requiredRole, children }: Props) {
 
   // ── 6. Authorised ─────────────────────────────────────────────────────────
   return <>{children ?? <Outlet />}</>
+}
+
+function LogoSpinner() {
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative">
+        {/* Outer pulsing ring */}
+        <div className="absolute inset-0 rounded-full animate-ping bg-primary/20 [animation-duration:1.5s]" />
+        {/* Inner rotating ring */}
+        <div className="absolute inset-[-6px] rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        {/* Logo */}
+        <img
+          src="/logo.png"
+          alt="Loading…"
+          className="relative h-16 w-16 rounded-full object-contain"
+        />
+      </div>
+    </div>
+  )
 }
