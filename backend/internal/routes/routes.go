@@ -17,6 +17,8 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 	r.Use(middleware.CORS([]string{
 		"http://localhost:5173",
 		"http://localhost:5174",
+		"https://proxascreen.me",
+		"https://www.proxascreen.me",
 	}))
 
 	r.GET("/health", func(c *gin.Context) {
