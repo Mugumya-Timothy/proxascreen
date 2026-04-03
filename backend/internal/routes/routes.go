@@ -61,6 +61,7 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 
 	auth.GET("/auth/me", bothRoles, authHandler.GetMe)
 	auth.GET("/dashboard/clinician-stats", bothRoles, dashboardHandler.GetClinicianStats)
+	auth.GET("/dashboard/services-health", bothRoles, dashboardHandler.GetServicesHealth)
 	auth.POST("/auth/reset-password", bothRoles, authHandler.ResetPassword)
 
 	// ── Clinician-protected (clinician or admin) ───────────────────────────────
@@ -82,7 +83,6 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 	admin.DELETE("/clinicians/:id", clinicianHandler.DeleteClinician)
 	admin.POST("/patients/bulk-import", bulkImportHandler.BulkImportPatients)
 	admin.GET("/dashboard/stats", dashboardHandler.GetStats)
-	admin.GET("/dashboard/services-health", dashboardHandler.GetServicesHealth)
 
 	return nil
 }
