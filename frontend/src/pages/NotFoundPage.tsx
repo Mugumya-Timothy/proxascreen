@@ -13,7 +13,7 @@ export default function NotFoundPage() {
         <svg className="absolute inset-0 h-full w-full opacity-[0.035]" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="nfgrid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="1" fill="#57BEEB" />
+              <circle cx="1" cy="1" r="1" fill="#5FB0E3" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#nfgrid)" />
@@ -37,7 +37,7 @@ export default function NotFoundPage() {
         <div
           className="mb-1 text-7xl font-bold leading-none tracking-tight"
           style={{
-            background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 60%, #3dbf8a 100%)',
+            background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 60%, #3dbf8a 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -49,7 +49,7 @@ export default function NotFoundPage() {
         {/* Divider */}
         <div
           className="my-5 h-px w-12"
-          style={{ background: 'linear-gradient(90deg, transparent, #57BEEB55, transparent)' }}
+          style={{ background: 'linear-gradient(90deg, transparent, #5FB0E355, transparent)' }}
         />
 
         {/* Heading */}
@@ -68,7 +68,7 @@ export default function NotFoundPage() {
             to="/"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40"
             style={{
-              background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 100%)',
+              background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
               boxShadow: '0 4px 14px 0 rgba(87,190,235,0.30)',
             }}
           >

@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
 import { useClinicians, useDeleteClinician } from '../../hooks/useClinicians'
+import AddClinicianModal from '../../components/AddClinicianModal'
 import type { User } from '../../types'
 
 export default function CliniciansPage() {
-  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [confirmId, setConfirmId]     = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const { data: clinicians = [], isLoading, isError } = useClinicians()
 
@@ -20,9 +23,9 @@ export default function CliniciansPage() {
             {isLoading ? '—' : `${clinicians.length} total clinician${clinicians.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Link to="/admin/clinicians/new" className="btn-primary">
+        <button onClick={() => setShowAddModal(true)} className="btn-primary">
           + Add Clinician
-        </Link>
+        </button>
       </div>
 
       {/* Error */}
@@ -75,9 +78,25 @@ export default function CliniciansPage() {
                 ? deleteMutation.error.message
                 : 'Delete failed')
             : null}
-          onConfirm={() => deleteMutation.mutate(confirmId, { onSuccess: () => setConfirmId(null) })}
+          onConfirm={() => deleteMutation.mutate(confirmId, {
+            onSuccess: () => {
+              setConfirmId(null)
+              toast.success('Clinician removed', {
+                description: 'The account has been permanently deleted',
+              })
+            },
+            onError: (err) => {
+              toast.error('Failed to remove clinician', {
+                description: err instanceof Error ? err.message : 'Please try again',
+              })
+            },
+          })}
           onCancel={() => { setConfirmId(null); deleteMutation.reset() }}
         />
+      )}
+
+      {showAddModal && (
+        <AddClinicianModal onClose={() => setShowAddModal(false)} />
       )}
     </div>
   )
@@ -90,7 +109,7 @@ function ClinicianRow({ clinician: c, onDelete }: { clinician: User; onDelete: (
     <tr className="group hover:bg-gray-50 transition-colors">
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-bold text-white">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             {c.full_name.charAt(0).toUpperCase()}
           </div>
           <span className="text-sm font-medium text-gray-900">{c.full_name}</span>
@@ -147,7 +166,7 @@ function ConfirmDeleteModal({
   onConfirm: () => void
   onCancel: () => void
 }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
@@ -188,11 +207,10 @@ function ConfirmDeleteModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function TrashIcon({ className }: { className?: string }) {
   return (

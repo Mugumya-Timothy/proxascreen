@@ -85,7 +85,7 @@ export default function LoginPage() {
       {/* ── Left branding panel (desktop only) ───────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-[46%] flex-col items-center justify-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #57BEEB 0%, #2aa8dd 55%, #3dbf8a 100%)' }}
+        style={{ background: 'linear-gradient(160deg, #5FB0E3 0%, #2aa8dd 55%, #3dbf8a 100%)' }}
       >
         {/* Subtle dot grid */}
         <svg aria-hidden className="absolute inset-0 h-full w-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
@@ -137,7 +137,7 @@ export default function LoginPage() {
           <div className="lg:hidden mb-5 flex flex-col items-center gap-2.5">
             <img src="/logo.png" alt="ProxaScreen logo" width={52} height={52} />
             <div className="text-center">
-              <div style={{ fontSize: '24px', lineHeight: 1, color: '#57BEEB' }}>
+              <div style={{ fontSize: '24px', lineHeight: 1, color: '#5FB0E3' }}>
                 <span style={{ fontWeight: 400 }}>Proxa</span><span style={{ fontWeight: 600 }}>Screen</span>
               </div>
               <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#b0b0b0', marginTop: '4px' }}>
@@ -239,7 +239,7 @@ export default function LoginPage() {
                 disabled={loading || !isLoaded}
                 className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
                 style={{
-                  background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 100%)',
+                  background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
                   boxShadow: '0 4px 14px 0 rgba(87,190,235,0.35)',
                 }}
               >

@@ -98,6 +98,16 @@ export interface ResetPasswordRequest {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
+export interface ServiceStatus {
+  status:     'online' | 'offline'
+  latency_ms: number
+}
+
+export interface ServicesHealth {
+  api:           ServiceStatus
+  model_service: ServiceStatus
+}
+
 export interface AdminStats {
   total_clinicians:  number
   total_patients:    number

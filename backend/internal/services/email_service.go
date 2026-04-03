@@ -63,7 +63,7 @@ func emailBase(title, previewText, bodyContent, appURL string) string {
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { box-sizing: border-box; }
     body { margin:0; padding:0; background:#f0f9fe; font-family:'Inter',ui-sans-serif,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
-    a { color:#57BEEB; text-decoration:none; }
+    a { color:#5FB0E3; text-decoration:none; }
   </style>
 </head>
 <body>
@@ -74,7 +74,7 @@ func emailBase(title, previewText, bodyContent, appURL string) string {
 
         <!-- Header -->
         <tr>
-          <td style="background:linear-gradient(135deg,#57BEEB 0%%,#2aa8dd 100%%);padding:36px 40px 32px;">
+          <td style="background:linear-gradient(135deg,#5FB0E3 0%%,#2aa8dd 100%%);padding:36px 40px 32px;">
             <table width="100%%" cellpadding="0" cellspacing="0" role="presentation">
               <tr>
                 <td>
@@ -107,7 +107,7 @@ func emailBase(title, previewText, bodyContent, appURL string) string {
                   </p>
                 </td>
                 <td align="right">
-                  <a href="%s/sign-in" style="font-family:'Inter',sans-serif;font-size:12px;color:#57BEEB;">Sign in →</a>
+                  <a href="%s/sign-in" style="font-family:'Inter',sans-serif;font-size:12px;color:#5FB0E3;">Sign in →</a>
                 </td>
               </tr>
             </table>
@@ -167,7 +167,7 @@ func welcomeHTML(fullName, email, tempPassword, appURL string) string {
     <!-- CTA button -->
     <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:32px;">
       <tr>
-        <td style="background:linear-gradient(135deg,#57BEEB 0%%,#2aa8dd 100%%);border-radius:10px;">
+        <td style="background:linear-gradient(135deg,#5FB0E3 0%%,#2aa8dd 100%%);border-radius:10px;">
           <a href="%s" style="display:inline-block;padding:14px 36px;font-family:'Inter',sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.1px;">Sign In to ProxaScreen →</a>
         </td>
       </tr>
@@ -175,7 +175,7 @@ func welcomeHTML(fullName, email, tempPassword, appURL string) string {
 
     <p style="margin:0;font-family:'Inter',sans-serif;font-size:13px;color:#9ca3af;line-height:1.6;">
       If you have any issues accessing your account, please contact your system administrator. If the button above doesn't work, copy this link into your browser:<br>
-      <a href="%s" style="color:#57BEEB;word-break:break-all;">%s</a>
+      <a href="%s" style="color:#5FB0E3;word-break:break-all;">%s</a>
     </p>`, fullName, email, tempPassword, loginURL, loginURL, loginURL)
 
 	return emailBase("Welcome to ProxaScreen", "Your ProxaScreen clinician account is ready — sign in now.", body, appURL)
@@ -206,7 +206,7 @@ func passwordResetHTML(fullName, appURL string) string {
     <!-- CTA button -->
     <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:32px;">
       <tr>
-        <td style="background:linear-gradient(135deg,#57BEEB 0%%,#2aa8dd 100%%);border-radius:10px;">
+        <td style="background:linear-gradient(135deg,#5FB0E3 0%%,#2aa8dd 100%%);border-radius:10px;">
           <a href="%s" style="display:inline-block;padding:14px 36px;font-family:'Inter',sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.1px;">Go to ProxaScreen →</a>
         </td>
       </tr>

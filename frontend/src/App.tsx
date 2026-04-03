@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { Toaster } from 'sonner'
 
 import ProtectedRoute    from './components/ProtectedRoute'
 import AdminLayout       from './layouts/AdminLayout'
@@ -29,7 +30,17 @@ import AddClinicianPage         from './pages/admin/AddClinicianPage'
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          duration: 4000,
+          style: { fontFamily: 'inherit', borderRadius: '0.75rem' },
+        }}
+      />
+      <Routes>
       {/* ── Public ─────────────────────────────────────────────────────── */}
       <Route path="/sign-in"         element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -68,6 +79,7 @@ export default function App() {
 
       {/* ── 404 ────────────────────────────────────────────────────────── */}
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }

@@ -1,6 +1,9 @@
 import { useState, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import RiskBadge from '../../components/RiskBadge'
+import PatientDetailModal from '../../components/PatientDetailModal'
 import { usePatients, useBulkImportPatients } from '../../hooks/usePatients'
 import type { Patient, RiskLevel, BulkImportResult } from '../../types'
 
@@ -24,8 +27,9 @@ function downloadSampleCSV() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PatientsPage() {
-  const [search, setSearch]           = useState('')
+  const [search, setSearch]             = useState('')
   const [showBulkModal, setShowBulkModal] = useState(false)
+  const [selectedId, setSelectedId]      = useState<string | null>(null)
 
   const { data: patients = [], isLoading, isError } = usePatients()
 
@@ -104,7 +108,7 @@ export default function PatientsPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => <PatientRow key={p.id} patient={p} />)
+              filtered.map((p) => <PatientRow key={p.id} patient={p} onView={() => setSelectedId(p.id)} />)
             )}
           </tbody>
         </table>
@@ -114,13 +118,17 @@ export default function PatientsPage() {
       {showBulkModal && (
         <BulkImportModal onClose={() => setShowBulkModal(false)} />
       )}
+
+      {selectedId && (
+        <PatientDetailModal base="/admin" patientId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
     </div>
   )
 }
 
 // ── Table row ─────────────────────────────────────────────────────────────────
 
-function PatientRow({ patient: p }: { patient: Patient }) {
+function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => void }) {
   return (
     <tr className="group hover:bg-gray-50 transition-colors">
       <td className="whitespace-nowrap px-5 py-4">
@@ -139,12 +147,12 @@ function PatientRow({ patient: p }: { patient: Patient }) {
         <RiskBadge level={p.latest_risk_level as RiskLevel | null} />
       </td>
       <td className="whitespace-nowrap px-5 py-4 text-right">
-        <Link
-          to={`/admin/patients/${p.id}`}
+        <button
+          onClick={onView}
           className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
         >
           View →
-        </Link>
+        </button>
       </td>
     </tr>
   )
@@ -176,7 +184,7 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
   const successCount = results?.filter((r) => !r.error).length ?? 0
   const errorCount   = results?.filter((r) => !!r.error).length ?? 0
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
@@ -331,7 +339,25 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               <button
-                onClick={() => file && mutation.mutate(file, { onSuccess: (data) => setResults(data) })}
+                onClick={() => file && mutation.mutate(file, {
+                  onSuccess: (data) => {
+                    setResults(data)
+                    const ok  = data.filter((r) => !r.error).length
+                    const bad = data.filter((r) =>  r.error).length
+                    if (bad === 0) {
+                      toast.success(`${ok} patient${ok !== 1 ? 's' : ''} imported successfully`)
+                    } else {
+                      toast.warning(`${ok} imported, ${bad} row${bad !== 1 ? 's' : ''} had errors`, {
+                        description: 'Review the results table below',
+                      })
+                    }
+                  },
+                  onError: (err) => {
+                    toast.error('Import failed', {
+                      description: err instanceof Error ? err.message : 'Please try again',
+                    })
+                  },
+                })}
                 disabled={!file || mutation.isPending}
                 className="btn-primary flex-1"
               >
@@ -344,7 +370,8 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

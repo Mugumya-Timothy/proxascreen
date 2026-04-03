@@ -3,8 +3,10 @@
  * and ClinicianLayout. Not exported from the layouts barrel; not used directly
  * by pages or routes.
  */
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useClerk, useUser } from '@clerk/clerk-react'
+import { useCurrentUser } from '../hooks/useAuth'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,116 +23,157 @@ type Props = {
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
 export default function SidebarShell({ navItems }: Props) {
-  const { signOut }  = useClerk()
-  const { user }     = useUser()
-  const navigate     = useNavigate()
+  const { signOut }      = useClerk()
+  const { user }         = useUser()
+  const navigate         = useNavigate()
+  const [open, setOpen]  = useState(false)
 
-  const fullName  = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'User'
-  const role      = ((user?.publicMetadata as { role?: string })?.role ?? 'clinician') as 'admin' | 'clinician'
-  const initials  = fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  const fullName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'User'
+  const { data: currentUser } = useCurrentUser()
+  const role     = (currentUser?.role ?? 'clinician') as 'admin' | 'clinician'
+  const initials = fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/sign-in', { replace: true })
   }
 
+  // ── Sidebar inner content (reused for both fixed mobile & static desktop) ──
+  const sidebarBody = (
+    <div className="flex h-full flex-col bg-white">
+      {/* Logo */}
+      <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-5 gap-[10px]">
+        <LogoMark />
+        <div className="flex flex-col items-start">
+          <span style={{ fontSize: '20px', lineHeight: 1, color: '#5FB0E3', letterSpacing: 0 }}>
+            <span style={{ fontWeight: 400 }}>Proxa</span>
+            <span style={{ fontWeight: 600 }}>Screen</span>
+          </span>
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8a8a8a', marginTop: '3px' }}>
+            {role}
+          </span>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+          Menu
+        </p>
+        <ul className="space-y-0.5">
+          {navItems.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.to === '/dashboard' || item.to.endsWith('/dashboard')}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  [
+                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-100',
+                    isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
+                  ].join(' ')
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span className={[
+                      'flex h-5 w-5 shrink-0 items-center justify-center transition-colors',
+                      isActive ? 'text-primary' : 'text-gray-400 group-hover:text-gray-600',
+                    ].join(' ')}>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </>
+                )}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* User footer */}
+      <div className="shrink-0 border-t border-gray-100 p-4">
+        <NavLink
+          to="/settings/reset-password"
+          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-gray-900 leading-tight">{fullName}</p>
+          </div>
+        </NavLink>
+
+        <button
+          onClick={handleSignOut}
+          className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+        >
+          <SignOutIcon className="h-4 w-4 shrink-0" />
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <aside className="flex w-64 shrink-0 flex-col bg-white shadow-[1px_0_0_0_#f3f4f6]">
 
-        {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-5" style={{ gap: '10px' }}>
-          <LogoMark />
-          <div className="flex flex-col items-start">
-            <span style={{ fontSize: '20px', lineHeight: 1, color: '#57BEEB', letterSpacing: 0 }}>
-              <span style={{ fontWeight: 400 }}>Proxa</span><span style={{ fontWeight: 600 }}>Screen</span>
-            </span>
-            <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8a8a8a', marginTop: '3px' }}>
-              Prostate Cancer Risk Screening
-            </span>
-          </div>
-        </div>
+      {/* ── Mobile overlay backdrop ────────────────────────────────────────── */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      )}
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-            Menu
-          </p>
-          <ul className="space-y-0.5">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.to === '/dashboard' || item.to.endsWith('/dashboard')}
-                  className={({ isActive }) =>
-                    [
-                      'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-100',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
-                    ].join(' ')
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <span className={[
-                        'flex h-5 w-5 shrink-0 items-center justify-center transition-colors',
-                        isActive ? 'text-primary' : 'text-gray-400 group-hover:text-gray-600',
-                      ].join(' ')}>
-                        {item.icon}
-                      </span>
-                      {item.label}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {/* User footer */}
-        <div className="shrink-0 border-t border-gray-100 p-4">
-          {/* User info row */}
-          <NavLink
-            to="/settings/reset-password"
-            className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 transition-colors"
-          >
-            {/* Avatar */}
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-semibold text-white shadow-sm">
-              {initials}
-            </div>
-            {/* Name + role */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-gray-900 leading-tight">{fullName}</p>
-              <span className={[
-                'inline-block mt-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold capitalize',
-                role === 'admin'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-secondary/10 text-secondary-700',
-              ].join(' ')}>
-                {role}
-              </span>
-            </div>
-          </NavLink>
-
-          {/* Sign out */}
-          <button
-            onClick={handleSignOut}
-            className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-          >
-            <SignOutIcon className="h-4 w-4 shrink-0" />
-            Sign out
-          </button>
-        </div>
+      {/* ── Sidebar — fixed on mobile, static on desktop ──────────────────── */}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-50 w-64 transition-transform duration-300 ease-in-out shadow-lg',
+          'md:relative md:z-auto md:shadow-[1px_0_0_0_#f3f4f6] md:translate-x-0 md:flex md:shrink-0 md:flex-col',
+          open ? 'translate-x-0' : '-translate-x-full',
+        ].join(' ')}
+      >
+        {sidebarBody}
       </aside>
 
-      {/* ── Main content ──────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <Outlet />
-        </div>
-      </main>
+      {/* ── Content area ──────────────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+        {/* Mobile top bar */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 md:hidden">
+          <button
+            onClick={() => setOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            aria-label="Open navigation"
+          >
+            <HamburgerIcon className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <LogoMark />
+            <span style={{ fontSize: '16px', color: '#5FB0E3' }}>
+              <span style={{ fontWeight: 400 }}>Proxa</span>
+              <span style={{ fontWeight: 600 }}>Screen</span>
+            </span>
+          </div>
+
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+            {initials}
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
@@ -149,6 +192,15 @@ function SignOutIcon({ className }: { className?: string }) {
       fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+    </svg>
+  )
+}
+
+function HamburgerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg"
+      fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
     </svg>
   )
 }

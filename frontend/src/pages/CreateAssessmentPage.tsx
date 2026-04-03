@@ -108,7 +108,7 @@ export default function CreateAssessmentPage() {
 
         {/* Patient context card */}
         <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-lg font-bold text-white shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white shadow-sm">
             {patient.full_name.charAt(0).toUpperCase()}
           </div>
           <div>

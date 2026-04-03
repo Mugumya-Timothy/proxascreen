@@ -174,7 +174,7 @@ export default function ResetPasswordPage() {
                   disabled={isPending}
                   className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
                   style={{
-                    background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 100%)',
+                    background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
                     boxShadow: '0 4px 14px 0 rgba(87,190,235,0.35)',
                   }}
                 >

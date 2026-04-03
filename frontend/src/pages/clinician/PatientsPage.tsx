@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import RiskBadge from '../../components/RiskBadge'
+import PatientDetailModal from '../../components/PatientDetailModal'
+import AddPatientModal from '../../components/AddPatientModal'
 import { usePatients } from '../../hooks/usePatients'
 import type { Patient, RiskLevel } from '../../types'
 
 export default function PatientsPage() {
-  const [search, setSearch] = useState('')
+  const [search, setSearch]           = useState('')
+  const [selectedId, setSelectedId]   = useState<string | null>(null)
+  const [showAddPatient, setShowAddPatient] = useState(false)
 
   const { data: patients = [], isLoading, isError } = usePatients()
 
@@ -29,9 +32,9 @@ export default function PatientsPage() {
             {isLoading ? '—' : `${patients.length} total patient${patients.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Link to="/patients/new" className="btn-primary">
+        <button onClick={() => setShowAddPatient(true)} className="btn-primary">
           + Add Patient
-        </Link>
+        </button>
       </div>
 
       {/* Search */}
@@ -75,18 +78,26 @@ export default function PatientsPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => <PatientRow key={p.id} patient={p} />)
+              filtered.map((p) => <PatientRow key={p.id} patient={p} onView={() => setSelectedId(p.id)} />)
             )}
           </tbody>
         </table>
       </div>
+
+      {selectedId && (
+        <PatientDetailModal patientId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
+
+      {showAddPatient && (
+        <AddPatientModal onClose={() => setShowAddPatient(false)} />
+      )}
     </div>
   )
 }
 
 // ── Table row ─────────────────────────────────────────────────────────────────
 
-function PatientRow({ patient: p }: { patient: Patient }) {
+function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => void }) {
   return (
     <tr className="group hover:bg-gray-50 transition-colors">
       <td className="whitespace-nowrap px-5 py-4">
@@ -105,12 +116,12 @@ function PatientRow({ patient: p }: { patient: Patient }) {
         <RiskBadge level={p.latest_risk_level as RiskLevel | null} />
       </td>
       <td className="whitespace-nowrap px-5 py-4 text-right">
-        <Link
-          to={`/patients/${p.id}`}
+        <button
+          onClick={onView}
           className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
         >
           View →
-        </Link>
+        </button>
       </td>
     </tr>
   )

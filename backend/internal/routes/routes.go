@@ -50,7 +50,7 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 	clinicianHandler := handlers.NewClinicianHandler(userService)
 	patientHandler := handlers.NewPatientHandler(patientService, assessmentService)
 	assessmentHandler := handlers.NewAssessmentHandler(assessmentService)
-	dashboardHandler := handlers.NewDashboardHandler(db)
+	dashboardHandler := handlers.NewDashboardHandler(db, cfg.ModelServiceURL)
 	authHandler := handlers.NewAuthHandler(userService, emailService)
 	bulkImportHandler := handlers.NewBulkImportHandler(patientService, assessmentService)
 
@@ -80,6 +80,7 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 	admin.DELETE("/clinicians/:id", clinicianHandler.DeleteClinician)
 	admin.POST("/patients/bulk-import", bulkImportHandler.BulkImportPatients)
 	admin.GET("/dashboard/stats", dashboardHandler.GetStats)
+	admin.GET("/dashboard/services-health", dashboardHandler.GetServicesHealth)
 
 	return nil
 }

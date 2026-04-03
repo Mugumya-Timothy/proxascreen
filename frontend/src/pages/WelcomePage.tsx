@@ -27,7 +27,7 @@ export default function WelcomePage() {
         <svg className="absolute inset-0 h-full w-full opacity-[0.035]" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="wgrid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="1" fill="#57BEEB" />
+              <circle cx="1" cy="1" r="1" fill="#5FB0E3" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#wgrid)" />
@@ -49,7 +49,7 @@ export default function WelcomePage() {
         />
 
         {/* Brand name */}
-        <div style={{ fontSize: '52px', lineHeight: 1, letterSpacing: '-0.5px', color: '#57BEEB' }}>
+        <div style={{ fontSize: '52px', lineHeight: 1, letterSpacing: '-0.5px', color: '#5FB0E3' }}>
           <span style={{ fontWeight: 400 }}>Proxa</span>
           <span style={{ fontWeight: 700 }}>Screen</span>
         </div>
@@ -72,7 +72,7 @@ export default function WelcomePage() {
           to="/sign-in"
           className="group inline-flex items-center gap-3 rounded-2xl px-7 py-3.5 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40"
           style={{
-            background: 'linear-gradient(135deg, #57BEEB 0%, #2aa8dd 100%)',
+            background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
             boxShadow: '0 6px 24px 0 rgba(87,190,235,0.40)',
           }}
         >
