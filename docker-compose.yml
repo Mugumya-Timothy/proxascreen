@@ -16,6 +16,7 @@ services:
       - CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - MODEL_SERVICE_URL=${MODEL_SERVICE_URL}
+      - APP_URL=https://proxascreen.me
     depends_on:
       - model-service
 
