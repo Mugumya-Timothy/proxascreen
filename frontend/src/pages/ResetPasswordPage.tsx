@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-10"
+    <div className="flex min-h-screen items-center justify-center px-4 py-10"
       style={{ background: 'linear-gradient(135deg, #f0f9fe 0%, #f8fffe 50%, #f0fdf8 100%)' }}>
 
       {/* Background orbs */}

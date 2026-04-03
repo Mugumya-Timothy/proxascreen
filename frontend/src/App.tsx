@@ -57,8 +57,8 @@ export default function App() {
           <Route path="assessments/:id"                   element={<AssessmentDetailPage />} />
           <Route path="clinicians"                        element={<AdminCliniciansPage />} />
           <Route path="clinicians/new"                    element={<AddClinicianPage />} />
-          <Route path="settings/reset-password"           element={<ResetPasswordPage />} />
         </Route>
+        <Route path="settings/reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       {/* ── Clinician routes ───────────────────────────────────────────── */}
@@ -73,8 +73,8 @@ export default function App() {
           <Route path="patients/:id"                      element={<PatientDetailPage />} />
           <Route path="patients/:id/assessments/new"      element={<CreateAssessmentPage />} />
           <Route path="assessments/:id"                   element={<AssessmentDetailPage />} />
-          <Route path="settings/reset-password"           element={<ResetPasswordPage />} />
         </Route>
+        <Route path="settings/reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       {/* ── 404 ────────────────────────────────────────────────────────── */}
