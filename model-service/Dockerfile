@@ -9,8 +9,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY main.py model.py ./
 
-# Copy model artefacts (models/ must be present at build time or mounted at runtime)
-COPY models/ ./models/
+# Download model artefacts from GitHub Releases
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p ./models \
+    && curl -fsSL -o ./models/feature_cols.pkl        https://github.com/Mugumya-Timothy/proxascreen/releases/download/v1.0.0-models/feature_cols.pkl \
+    && curl -fsSL -o ./models/label_encoders.pkl      https://github.com/Mugumya-Timothy/proxascreen/releases/download/v1.0.0-models/label_encoders.pkl \
+    && curl -fsSL -o ./models/prostate_cancer_model.pkl https://github.com/Mugumya-Timothy/proxascreen/releases/download/v1.0.0-models/prostate_cancer_model.pkl \
+    && curl -fsSL -o ./models/scaler.pkl              https://github.com/Mugumya-Timothy/proxascreen/releases/download/v1.0.0-models/scaler.pkl
 
 EXPOSE 8000
 
