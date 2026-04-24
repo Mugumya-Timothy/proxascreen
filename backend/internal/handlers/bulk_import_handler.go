@@ -43,7 +43,8 @@ type importResult struct {
 // Expected columns (case-insensitive, order flexible via header row):
 //
 //	full_name, age, date_of_submission, bmi, smoker, diet_type,
-//	physical_activity_level, family_history, regular_health_checkup, prostate_exam_done
+//	physical_activity_level, alcohol_consumption, family_history,
+//	regular_health_checkup, prostate_exam_done
 func (h *BulkImportHandler) BulkImportPatients(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -146,6 +147,14 @@ func (h *BulkImportHandler) processRow(
 		return nil, fmt.Errorf("invalid physical_activity_level %q; must be low, moderate, or high", get("physical_activity_level"))
 	}
 
+	alcoholConsumption := strings.ToLower(get("alcohol_consumption"))
+	if alcoholConsumption == "" {
+		alcoholConsumption = "no"
+	}
+	if alcoholConsumption != "no" && alcoholConsumption != "moderate" && alcoholConsumption != "high" {
+		return nil, fmt.Errorf("invalid alcohol_consumption %q; must be no, moderate, or high", get("alcohol_consumption"))
+	}
+
 	dos := get("date_of_submission")
 	if dos != "" {
 		if _, err := time.Parse("2006-01-02", dos); err != nil {
@@ -173,6 +182,7 @@ func (h *BulkImportHandler) processRow(
 		Smoker:                smoker,
 		DietType:              dietType,
 		PhysicalActivityLevel: pal,
+		AlcoholConsumption:    alcoholConsumption,
 		FamilyHistory:         familyHistory,
 		RegularHealthCheckup:  regularCheckup,
 		ProstateExamDone:      prostateExam,

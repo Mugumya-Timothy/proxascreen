@@ -145,10 +145,14 @@ func (s *PatientService) GetPatient(ctx context.Context, id string) (*Patient, e
 
 	// Fetch associated assessments.
 	aRows, err := s.db.Query(ctx, `
-		SELECT id, patient_id, clinician_id, age, bmi, smoker, diet_type,
-		       physical_activity_level, family_history, regular_health_checkup,
-		       prostate_exam_done, risk_level, low_percentage, medium_percentage,
-		       high_percentage, created_at, updated_at
+		SELECT
+			id, patient_id, clinician_id, age, bmi, smoker, diet_type,
+			physical_activity_level, alcohol_consumption, family_history,
+			regular_health_checkup, prostate_exam_done,
+			risk_level, low_percentage, medium_percentage, high_percentage,
+			model_confidence, risk_explanation,
+			top_contributing_factors, clinical_recommendation, feature_importances,
+			created_at, updated_at
 		FROM assessments WHERE patient_id=$1 ORDER BY created_at DESC
 	`, id)
 	if err != nil {

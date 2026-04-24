@@ -31,7 +31,15 @@ export interface Patient {
 
 export type DietType              = 'fatty' | 'mixed' | 'healthy'
 export type PhysicalActivityLevel = 'low'   | 'moderate' | 'high'
+export type AlcoholConsumption    = 'no'    | 'moderate' | 'high'
 export type RiskLevel             = 'Low'   | 'Medium'   | 'High'
+
+export interface ContributingFactor {
+  factor:     string
+  direction:  'Increased risk' | 'Decreased risk'
+  strength:   'Strong' | 'Moderate' | 'Mild'
+  importance: number
+}
 
 export interface Assessment {
   id:                      string
@@ -42,6 +50,7 @@ export interface Assessment {
   smoker:                  boolean
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
+  alcohol_consumption:     AlcoholConsumption
   family_history:          boolean
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
@@ -49,6 +58,11 @@ export interface Assessment {
   low_percentage:          number
   medium_percentage:       number
   high_percentage:         number
+  model_confidence:        number
+  risk_explanation:        string
+  top_contributing_factors: ContributingFactor[]
+  clinical_recommendation: string
+  feature_importances:     Record<string, number>
   created_at:              string
   updated_at:              string
 }
@@ -63,6 +77,7 @@ export interface CreatePatientRequest {
   smoker:                  boolean
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
+  alcohol_consumption:     AlcoholConsumption
   family_history:          boolean
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
@@ -74,6 +89,7 @@ export interface CreateAssessmentRequest {
   smoker:                  boolean
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
+  alcohol_consumption:     AlcoholConsumption
   family_history:          boolean
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean

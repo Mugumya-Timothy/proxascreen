@@ -17,8 +17,185 @@ const RISK_BG_RGB: Record<string, [number, number, number]> = {
   High:   [254, 242, 242],
 }
 
+const FEATURE_LABELS: Record<string, string> = {
+  age:                     'Age',
+  bmi:                     'BMI',
+  bmi_category:            'BMI Category',
+  age_group:               'Age Group',
+  smoker:                  'Smoker',
+  alcohol_consumption:     'Alcohol Use',
+  diet_type:               'Diet Type',
+  physical_activity_level: 'Physical Activity',
+  family_history:          'Family History',
+  regular_health_checkup:  'Health Checkup',
+  prostate_exam_done:      'Prostate Exam',
+  risk_factor_count:       'Risk Factors',
+}
+
+function featureLabel(key: string): string {
+  return (
+    FEATURE_LABELS[key] ??
+    key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  )
+}
+
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/**
+ * If the content that follows won't fit on the current page, inserts a new
+ * page and returns the reset y; otherwise returns y unchanged.
+ */
+function maybeNewPage(
+  doc: jsPDF,
+  y: number,
+  needed: number,
+  pageH: number,
+  margin: number,
+): number {
+  if (y + needed > pageH - margin - 10) {
+    doc.addPage()
+    return margin + 8
+  }
+  return y
+}
+
+/**
+ * Renders a horizontal bar chart directly with jsPDF primitives.
+ * `labelW` is the reserved width (mm) for the left-side category labels.
+ * Returns the y position after the last bar row.
+ */
+function drawBarChart(
+  doc: jsPDF,
+  startY: number,
+  margin: number,
+  pageW: number,
+  data: { name: string; value: number; rgb: [number, number, number] }[],
+  maxValue: number,
+  formatValue: (v: number) => string,
+  labelW: number,
+): number {
+  const chartW   = pageW - margin * 2
+  const valueW   = 24
+  const barAreaW = chartW - labelW - valueW
+  const rowH     = 8.5
+  let y          = startY
+
+  for (const { name, value, rgb } of data) {
+    const barW = barAreaW * Math.min(value / maxValue, 1)
+
+    // Category label
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(107, 114, 128)
+    doc.text(name, margin, y + rowH / 2 + 1, { baseline: 'middle' })
+
+    // Background track
+    doc.setFillColor(236, 238, 240)
+    doc.roundedRect(margin + labelW, y + 1.5, barAreaW, rowH - 3, 1.2, 1.2, 'F')
+
+    // Filled bar
+    if (barW > 0.5) {
+      doc.setFillColor(...rgb)
+      doc.roundedRect(margin + labelW, y + 1.5, barW, rowH - 3, 1.2, 1.2, 'F')
+    }
+
+    // Value label
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(17, 24, 39)
+    doc.text(
+      formatValue(value),
+      margin + labelW + barAreaW + 2,
+      y + rowH / 2 + 1,
+      { baseline: 'middle' },
+    )
+
+    y += rowH
+  }
+  return y
+}
+
+/**
+ * Renders the green→yellow→red risk spectrum gauge with a needle at the
+ * weighted `position` (0–100 scalar from risk probabilities).
+ * Returns the y position after the whole gauge block.
+ */
+function drawRiskGauge(
+  doc: jsPDF,
+  startY: number,
+  margin: number,
+  pageW: number,
+  position: number,
+  riskLevel: string,
+  confidence: number,
+): number {
+  const gaugeW = pageW - margin * 2
+  const gaugeH = 9
+  const steps  = 50
+  let   y      = startY
+
+  // Gradient bar — simulated with `steps` thin rectangles
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1)
+    let r: number, g: number, b: number
+    if (t < 0.5) {
+      const tt = t * 2                               // green → yellow
+      r = Math.round(34  + (250 - 34)  * tt)
+      g = Math.round(197 + (204 - 197) * tt)
+      b = Math.round(94  + (21  - 94)  * tt)
+    } else {
+      const tt = (t - 0.5) * 2                       // yellow → red
+      r = Math.round(250 + (239 - 250) * tt)
+      g = Math.round(204 + (68  - 204) * tt)
+      b = Math.round(21  + (68  - 21)  * tt)
+    }
+    const segX = margin + (gaugeW / steps) * i
+    const segW = (gaugeW / steps) + 0.3              // slight overlap avoids gaps
+    doc.setFillColor(r, g, b)
+    doc.rect(segX, y, segW, gaugeH, 'F')
+  }
+
+  // Border outline
+  doc.setDrawColor(209, 213, 219)
+  doc.setLineWidth(0.3)
+  doc.roundedRect(margin, y, gaugeW, gaugeH, 2, 2, 'S')
+
+  // Needle: vertical line + filled circle at the bottom
+  const clampedPos = Math.min(Math.max(position, 1.5), 98.5)
+  const needleX    = margin + (clampedPos / 100) * gaugeW
+
+  doc.setDrawColor(17, 24, 39)
+  doc.setLineWidth(1.0)
+  doc.line(needleX, y - 3, needleX, y + gaugeH + 3)
+
+  doc.setFillColor(17, 24, 39)
+  doc.setDrawColor(17, 24, 39)
+  doc.ellipse(needleX, y + gaugeH + 4.5, 1.8, 1.8, 'F')
+
+  y += gaugeH + 9
+
+  // Zone labels
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(22, 101, 52)
+  doc.text('LOW', margin, y)
+  doc.setTextColor(180, 100, 0)
+  doc.text('MEDIUM', pageW / 2, y, { align: 'center' })
+  doc.setTextColor(153, 27, 27)
+  doc.text('HIGH', pageW - margin, y, { align: 'right' })
+
+  y += 5
+
+  // Confidence sub-label
+  const riskTextRgb = RISK_TEXT_RGB[riskLevel] ?? RISK_TEXT_RGB.High
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...riskTextRgb)
+  doc.text(`Model confidence: ${confidence.toFixed(1)}%`, pageW / 2, y, { align: 'center' })
+
+  return y + 5
 }
 
 export function generateAssessmentPDF(
@@ -26,11 +203,11 @@ export function generateAssessmentPDF(
   patient: Patient,
   clinicianName: string,
 ): void {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const doc    = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageW  = doc.internal.pageSize.getWidth()
   const pageH  = doc.internal.pageSize.getHeight()
   const margin = 14
-  let y = 18
+  let y        = 18
 
   // ── Header ────────────────────────────────────────────────────────────────
 
@@ -92,14 +269,16 @@ export function generateAssessmentPDF(
 
   // ── Risk Assessment Result ─────────────────────────────────────────────────
 
+  y = maybeNewPage(doc, y, 55, pageH, margin)
+
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
   doc.text('RISK ASSESSMENT RESULT', margin, y)
   y += 3
 
-  const riskTextRgb = RISK_TEXT_RGB[assessment.risk_level]
-  const riskBgRgb   = RISK_BG_RGB[assessment.risk_level]
+  const riskTextRgb = RISK_TEXT_RGB[assessment.risk_level] ?? RISK_TEXT_RGB.High
+  const riskBgRgb   = RISK_BG_RGB[assessment.risk_level]   ?? RISK_BG_RGB.High
 
   doc.setFillColor(...riskBgRgb)
   doc.roundedRect(margin, y, pageW - margin * 2, 14, 3, 3, 'F')
@@ -107,52 +286,45 @@ export function generateAssessmentPDF(
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...riskTextRgb)
   doc.text(`${assessment.risk_level} Risk`, pageW / 2, y + 9.5, { align: 'center' })
-  y += 22
+  y += 18
 
-  // ── Probability Breakdown ──────────────────────────────────────────────────
+  // ── Risk Gauge ────────────────────────────────────────────────────────────
+
+  // Weighted 0–100 position on the spectrum: 0 = all-Low, 100 = all-High
+  const riskPos =
+    assessment.low_percentage    * 0   +
+    assessment.medium_percentage * 0.5 +
+    assessment.high_percentage   * 1.0
+
+  y = drawRiskGauge(doc, y, margin, pageW, riskPos, assessment.risk_level, assessment.model_confidence)
+  y += 6
+
+  // ── Probability Distribution (bar chart) ──────────────────────────────────
+
+  y = maybeNewPage(doc, y, 42, pageH, margin)
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
-  doc.text('PROBABILITY BREAKDOWN', margin, y)
-  y += 2
+  doc.text('PROBABILITY DISTRIBUTION', margin, y)
+  y += 5
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: margin, right: margin },
-    theme: 'grid',
-    headStyles: {
-      fillColor: [249, 250, 251] as [number, number, number],
-      textColor: [107, 114, 128] as [number, number, number],
-      fontStyle: 'bold',
-      fontSize: 8,
-    },
-    styles: { fontSize: 10, cellPadding: 3 },
-    columnStyles: {
-      0: { cellWidth: 65 },
-      1: { halign: 'right', fontStyle: 'bold' },
-    },
-    head: [['Category', 'Probability']],
-    body: [
-      ['Low Risk',    `${assessment.low_percentage.toFixed(1)}%`],
-      ['Medium Risk', `${assessment.medium_percentage.toFixed(1)}%`],
-      ['High Risk',   `${assessment.high_percentage.toFixed(1)}%`],
+  y = drawBarChart(
+    doc, y, margin, pageW,
+    [
+      { name: 'High Risk',   value: assessment.high_percentage,   rgb: [239, 68,  68] },
+      { name: 'Medium Risk', value: assessment.medium_percentage, rgb: [234, 179, 8]  },
+      { name: 'Low Risk',    value: assessment.low_percentage,    rgb: [34,  197, 94] },
     ],
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 0) {
-        const colours: [number, number, number][] = [
-          [22, 101, 52],
-          [146, 64, 14],
-          [153, 27, 27],
-        ]
-        data.cell.styles.textColor = colours[data.row.index]
-      }
-    },
-  })
-
-  y = (doc as any).lastAutoTable.finalY + 10
+    100,
+    (v) => `${v.toFixed(1)}%`,
+    55,
+  )
+  y += 8
 
   // ── Clinical Inputs ────────────────────────────────────────────────────────
+
+  y = maybeNewPage(doc, y, 65, pageH, margin)
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
@@ -179,6 +351,7 @@ export function generateAssessmentPDF(
       ['Age',                      String(assessment.age)],
       ['BMI',                      assessment.bmi.toFixed(1)],
       ['Smoker',                   assessment.smoker ? 'Yes' : 'No'],
+      ['Alcohol Consumption',      cap(assessment.alcohol_consumption)],
       ['Diet Type',                cap(assessment.diet_type)],
       ['Physical Activity Level',  cap(assessment.physical_activity_level)],
       ['Family History',           assessment.family_history ? 'Yes' : 'No'],
@@ -187,24 +360,151 @@ export function generateAssessmentPDF(
     ],
   })
 
-  // ── Footer ────────────────────────────────────────────────────────────────
+  y = (doc as any).lastAutoTable.finalY + 10
 
-  const footerY = pageH - 10
-  doc.setDrawColor(229, 231, 235)
-  doc.setLineWidth(0.3)
-  doc.line(margin, footerY - 5, pageW - margin, footerY - 5)
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
+  // ── Assessment Summary ────────────────────────────────────────────────────
+
+  y = maybeNewPage(doc, y, 30, pageH, margin)
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
-  doc.text(
-    `Generated by ProxaScreen · Assessment ID: ${assessment.id}`,
-    pageW / 2,
-    footerY,
-    { align: 'center' },
+  doc.text('ASSESSMENT SUMMARY', margin, y)
+  y += 4
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(55, 65, 81)
+  const summaryLines = doc.splitTextToSize(assessment.risk_explanation, pageW - margin * 2) as string[]
+  doc.text(summaryLines, margin, y)
+  y += summaryLines.length * 4.5 + 8
+
+  // ── Key Contributing Factors ──────────────────────────────────────────────
+
+  if (assessment.top_contributing_factors?.length) {
+    y = maybeNewPage(doc, y, 40, pageH, margin)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('KEY CONTRIBUTING FACTORS', margin, y)
+    y += 2
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'plain',
+      styles: { fontSize: 9.5, cellPadding: { top: 2, bottom: 2, left: 0, right: 4 } },
+      columnStyles: {
+        0: { cellWidth: 10, textColor: [107, 114, 128] as [number, number, number] },
+        1: { fontStyle: 'bold', textColor: [17, 24, 39] as [number, number, number], cellWidth: 100 },
+        2: { textColor: [107, 114, 128] as [number, number, number] },
+      },
+      body: assessment.top_contributing_factors.map((f, i) => [
+        `${i + 1}.`,
+        f.factor,
+        `${f.strength} — ${f.direction}`,
+      ]),
+    })
+
+    y = (doc as any).lastAutoTable.finalY + 10
+  }
+
+  // ── Feature Importance Chart ──────────────────────────────────────────────
+
+  const fiEntries = Object.entries(assessment.feature_importances ?? {}).sort(
+    (a, b) => b[1] - a[1],
   )
+
+  if (fiEntries.length > 0) {
+    const top3Keys = new Set(fiEntries.slice(0, 3).map(([k]) => k))
+    const maxFI    = fiEntries[0][1]
+    const chartH   = fiEntries.length * 8.5 + 20
+
+    y = maybeNewPage(doc, y, chartH, pageH, margin)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('FEATURE IMPORTANCE', margin, y)
+    y += 3
+
+    doc.setFont('helvetica', 'normal')
+    doc.text('Red = top 3 most influential features', margin, y)
+    y += 5
+
+    y = drawBarChart(
+      doc, y, margin, pageW,
+      fiEntries.map(([key, val]) => ({
+        name:  featureLabel(key),
+        value: val,
+        rgb:   (top3Keys.has(key) ? [239, 68, 68] : [59, 130, 246]) as [number, number, number],
+      })),
+      maxFI,
+      (v) => v.toFixed(3),
+      80,
+    )
+    y += 8
+  }
+
+  // ── Clinical Recommendation ───────────────────────────────────────────────
+
+  y = maybeNewPage(doc, y, 40, pageH, margin)
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(156, 163, 175)
+  doc.text('CLINICAL RECOMMENDATION', margin, y)
+  y += 4
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(55, 65, 81)
+  const recLines = doc.splitTextToSize(assessment.clinical_recommendation, pageW - margin * 2) as string[]
+  doc.text(recLines, margin, y)
+  y += recLines.length * 4.5 + 8
+
+  // Disclaimer box
+  const disclaimerText =
+    'DISCLAIMER: This is a clinical decision support tool only. It does not diagnose prostate cancer. ' +
+    'Final clinical decisions rest with the attending health worker.'
+  const disclaimerLines = doc.splitTextToSize(disclaimerText, pageW - margin * 2 - 8) as string[]
+  const disclaimerH     = disclaimerLines.length * 4.5 + 8
+
+  y = maybeNewPage(doc, y, disclaimerH + 10, pageH, margin)
+
+  doc.setFillColor(255, 251, 235)
+  doc.setDrawColor(217, 119, 6)
+  doc.setLineWidth(0.4)
+  doc.roundedRect(margin, y, pageW - margin * 2, disclaimerH, 2, 2, 'FD')
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(146, 64, 14)
+  doc.text(disclaimerLines, margin + 4, y + 5)
+
+  // ── Footer on every page ──────────────────────────────────────────────────
+
+  const totalPages = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    const footerY = pageH - 10
+    doc.setDrawColor(229, 231, 235)
+    doc.setLineWidth(0.3)
+    doc.line(margin, footerY - 5, pageW - margin, footerY - 5)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(156, 163, 175)
+    doc.text(
+      `Generated by ProxaScreen · Assessment ID: ${assessment.id}${totalPages > 1 ? ` · Page ${p} of ${totalPages}` : ''}`,
+      pageW / 2,
+      footerY,
+      { align: 'center' },
+    )
+  }
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const datePart = new Date(assessment.created_at).toISOString().slice(0, 10)
   doc.save(`ProxaScreen_${patient.patient_number}_${datePart}.pdf`)
 }
+

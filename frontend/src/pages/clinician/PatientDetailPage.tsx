@@ -90,7 +90,7 @@ export default function PatientDetailPage() {
             <table className="min-w-full divide-y divide-gray-100">
               <thead>
                 <tr className="bg-gray-50">
-                  {['Date', 'Risk Level', 'Low %', 'Medium %', 'High %', 'BMI', 'Actions'].map((h) => (
+                  {['Date', 'Risk Level', 'Confidence', 'Low %', 'Medium %', 'High %', 'BMI', 'Alcohol', 'Actions'].map((h) => (
                     <th key={h} className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                       {h}
                     </th>
@@ -99,7 +99,7 @@ export default function PatientDetailPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {assessments.map((a) => (
-                  <AssessmentRow key={a.id} assessment={a} patient={patient} clinicianName={clinicianName} />
+                  <AssessmentRow key={a.id} assessment={a} patient={patient} clinicianName={clinicianName} base={base} />
                 ))}
               </tbody>
             </table>
@@ -112,7 +112,17 @@ export default function PatientDetailPage() {
 
 // ── Assessment table row ──────────────────────────────────────────────────────
 
-function AssessmentRow({ assessment: a, patient, clinicianName }: { assessment: Assessment; patient: Patient; clinicianName: string }) {
+function AssessmentRow({
+  assessment: a,
+  patient,
+  clinicianName,
+  base,
+}: {
+  assessment: Assessment
+  patient: Patient
+  clinicianName: string
+  base: string
+}) {
   const handleDownloadPDF = () => generateAssessmentPDF(a, patient, clinicianName)
 
   return (
@@ -122,6 +132,9 @@ function AssessmentRow({ assessment: a, patient, clinicianName }: { assessment: 
       </td>
       <td className="whitespace-nowrap px-5 py-4">
         <RiskBadge level={a.risk_level} />
+      </td>
+      <td className="whitespace-nowrap px-5 py-4 text-sm font-medium tabular-nums text-gray-700">
+        {a.model_confidence.toFixed(1)}%
       </td>
       <td className="whitespace-nowrap px-5 py-4 text-sm text-green-600 font-medium tabular-nums">
         {a.low_percentage.toFixed(1)}%
@@ -135,14 +148,25 @@ function AssessmentRow({ assessment: a, patient, clinicianName }: { assessment: 
       <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">
         {a.bmi.toFixed(1)}
       </td>
+      <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">
+        {capitalize(a.alcohol_consumption)}
+      </td>
       <td className="whitespace-nowrap px-5 py-4">
-        <button
-          onClick={handleDownloadPDF}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors"
-        >
-          <DownloadIcon className="h-3.5 w-3.5" />
-          PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`${base}/assessments/${a.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary shadow-sm hover:bg-primary/10 transition-colors"
+          >
+            View
+          </Link>
+          <button
+            onClick={handleDownloadPDF}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          >
+            <DownloadIcon className="h-3.5 w-3.5" />
+            PDF
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -176,6 +200,10 @@ function PageSkeleton() {
   )
 }
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 function formatDate(iso: string) {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
@@ -185,10 +213,6 @@ function formatDate(iso: string) {
 function formatDateTime(iso: string) {
   const d = new Date(iso)
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function DownloadIcon({ className }: { className?: string }) {

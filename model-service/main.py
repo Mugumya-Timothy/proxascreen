@@ -3,7 +3,7 @@ main.py — FastAPI application for the ProxaScreen model service.
 
 Endpoints:
   GET  /health   → liveness check
-  POST /predict  → prostate cancer risk prediction
+  POST /predict  → prostate cancer risk prediction with full clinical output
 """
 
 from __future__ import annotations
@@ -17,14 +17,12 @@ from pydantic import BaseModel, Field, field_validator
 logger = logging.getLogger("model-service")
 
 
-# ── Lifespan: validate model artefacts are loadable before accepting traffic ──
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # model.py loads artefacts at import time; any FileNotFoundError raised
-    # during import will propagate here and prevent the server from starting.
     try:
-        import model  # noqa: F401 — triggers the module-level loads
+        import model  # noqa: F401 — triggers module-level load and validation
         logger.info("Model artefacts loaded successfully.")
     except FileNotFoundError as exc:
         logger.error("Startup failed — missing model artefact: %s", exc)
@@ -35,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ProxaScreen Model Service",
     description="Prostate cancer risk prediction API",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -43,14 +41,15 @@ app = FastAPI(
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class PredictRequest(BaseModel):
-    age:                    float = Field(..., gt=0, le=120, description="Patient age in years")
-    bmi:                    float = Field(..., gt=0, description="Body mass index")
-    smoker:                 bool  = Field(..., description="Current or former smoker")
-    diet_type:              str   = Field(..., description="fatty | mixed | healthy")
-    physical_activity_level: str  = Field(..., description="low | moderate | high")
-    family_history:         bool  = Field(..., description="Family history of prostate cancer")
-    regular_health_checkup: bool  = Field(..., description="Attends regular health checkups")
-    prostate_exam_done:     bool  = Field(..., description="Has had a prostate exam")
+    age:                     float = Field(..., gt=0, le=120, description="Patient age in years")
+    bmi:                     float = Field(..., gt=0, description="Body mass index")
+    smoker:                  bool  = Field(..., description="Current or former smoker")
+    diet_type:               str   = Field(..., description="fatty | mixed | healthy")
+    physical_activity_level: str   = Field(..., description="low | moderate | high")
+    family_history:          bool  = Field(..., description="Family history of prostate cancer")
+    regular_health_checkup:  bool  = Field(..., description="Attends regular health checkups")
+    prostate_exam_done:      bool  = Field(..., description="Has had a prostate exam")
+    alcohol_consumption:     str   = Field(..., description="no | moderate | high")
 
     @field_validator("diet_type")
     @classmethod
@@ -68,12 +67,32 @@ class PredictRequest(BaseModel):
             raise ValueError(f"physical_activity_level must be one of {sorted(allowed)}")
         return v.lower().strip()
 
+    @field_validator("alcohol_consumption")
+    @classmethod
+    def validate_alcohol(cls, v: str) -> str:
+        allowed = {"no", "moderate", "high"}
+        if v.lower().strip() not in allowed:
+            raise ValueError(f"alcohol_consumption must be one of {sorted(allowed)}")
+        return v.lower().strip()
+
+
+class ContributingFactor(BaseModel):
+    factor:     str
+    direction:  str
+    strength:   str
+    importance: float
+
 
 class PredictResponse(BaseModel):
-    risk_level:        str   = Field(..., description="Low | Medium | High")
-    low_percentage:    float = Field(..., description="Probability of Low risk (0–100)")
-    medium_percentage: float = Field(..., description="Probability of Medium risk (0–100)")
-    high_percentage:   float = Field(..., description="Probability of High risk (0–100)")
+    risk_level:               str                    = Field(..., description="Low | Medium | High")
+    low_percentage:           float                  = Field(..., description="Probability of Low risk (0–100)")
+    medium_percentage:        float                  = Field(..., description="Probability of Medium risk (0–100)")
+    high_percentage:          float                  = Field(..., description="Probability of High risk (0–100)")
+    model_confidence:         float                  = Field(..., description="Model confidence percentage (0–100)")
+    risk_explanation:         str                    = Field(..., description="Plain-language assessment summary")
+    top_contributing_factors: list[ContributingFactor]
+    clinical_recommendation:  str                    = Field(..., description="Clinical next-action recommendation")
+    feature_importances:      dict[str, float]       = Field(..., description="Feature importance scores for chart")
 
 
 class HealthResponse(BaseModel):
@@ -101,7 +120,9 @@ def health() -> HealthResponse:
 )
 def predict(req: PredictRequest) -> PredictResponse:
     """
-    Run the prostate cancer risk model and return risk level with class probabilities.
+    Run the prostate cancer risk model and return risk level, probabilities,
+    model confidence, assessment summary, contributing factors,
+    clinical recommendation, and feature importances for charting.
     """
     import model as m
 
@@ -115,6 +136,7 @@ def predict(req: PredictRequest) -> PredictResponse:
             family_history         = req.family_history,
             regular_health_checkup = req.regular_health_checkup,
             prostate_exam_done     = req.prostate_exam_done,
+            alcohol_consumption    = req.alcohol_consumption,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -125,9 +147,4 @@ def predict(req: PredictRequest) -> PredictResponse:
             detail="Prediction failed — see model service logs.",
         )
 
-    return PredictResponse(
-        risk_level        = result.risk_level,
-        low_percentage    = result.low_percentage,
-        medium_percentage = result.medium_percentage,
-        high_percentage   = result.high_percentage,
-    )
+    return PredictResponse(**result)

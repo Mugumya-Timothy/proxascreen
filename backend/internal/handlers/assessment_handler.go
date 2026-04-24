@@ -23,6 +23,7 @@ type createAssessmentRequest struct {
 	Smoker                bool    `json:"smoker"`
 	DietType              string  `json:"diet_type" binding:"required,oneof=fatty mixed healthy"`
 	PhysicalActivityLevel string  `json:"physical_activity_level" binding:"required,oneof=low moderate high"`
+	AlcoholConsumption    string  `json:"alcohol_consumption" binding:"required,oneof=no moderate high"`
 	FamilyHistory         bool    `json:"family_history"`
 	RegularHealthCheckup  bool    `json:"regular_health_checkup"`
 	ProstateExamDone      bool    `json:"prostate_exam_done"`
@@ -44,6 +45,7 @@ func (h *AssessmentHandler) CreateAssessment(c *gin.Context) {
 		Smoker:                req.Smoker,
 		DietType:              req.DietType,
 		PhysicalActivityLevel: req.PhysicalActivityLevel,
+		AlcoholConsumption:    req.AlcoholConsumption,
 		FamilyHistory:         req.FamilyHistory,
 		RegularHealthCheckup:  req.RegularHealthCheckup,
 		ProstateExamDone:      req.ProstateExamDone,

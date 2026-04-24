@@ -4,11 +4,13 @@ import AssessmentResultModal from '../../components/AssessmentResultModal'
 import { useCreatePatient } from '../../hooks/usePatients'
 import type { Assessment } from '../../types'
 
-const DIET_OPTIONS    = ['fatty', 'mixed', 'healthy'] as const
+const DIET_OPTIONS     = ['fatty', 'mixed', 'healthy'] as const
 const ACTIVITY_OPTIONS = ['low', 'moderate', 'high'] as const
+const ALCOHOL_OPTIONS  = ['no', 'moderate', 'high'] as const
 
 type DietType     = typeof DIET_OPTIONS[number]
 type ActivityType = typeof ACTIVITY_OPTIONS[number]
+type AlcoholType  = typeof ALCOHOL_OPTIONS[number]
 
 interface FormState {
   full_name:                string
@@ -18,6 +20,7 @@ interface FormState {
   smoker:                   boolean
   diet_type:                DietType
   physical_activity_level:  ActivityType
+  alcohol_consumption:      AlcoholType
   family_history:           boolean
   regular_health_checkup:   boolean
   prostate_exam_done:       boolean
@@ -31,6 +34,7 @@ const INITIAL: FormState = {
   smoker:                  false,
   diet_type:               'mixed',
   physical_activity_level: 'moderate',
+  alcohol_consumption:     'no',
   family_history:          false,
   regular_health_checkup:  false,
   prostate_exam_done:      false,
@@ -61,6 +65,7 @@ export default function AddPatientPage() {
         smoker:                  form.smoker,
         diet_type:               form.diet_type,
         physical_activity_level: form.physical_activity_level,
+        alcohol_consumption:     form.alcohol_consumption,
         family_history:          form.family_history,
         regular_health_checkup:  form.regular_health_checkup,
         prostate_exam_done:      form.prostate_exam_done,
@@ -169,6 +174,19 @@ export default function AddPatientPage() {
                   onChange={(e) => set('physical_activity_level', e.target.value as ActivityType)}
                 >
                   {ACTIVITY_OPTIONS.map((o) => (
+                    <option key={o} value={o}>{capitalize(o)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>Alcohol Consumption</Label>
+                <select
+                  className="input mt-1"
+                  value={form.alcohol_consumption}
+                  onChange={(e) => set('alcohol_consumption', e.target.value as AlcoholType)}
+                >
+                  {ALCOHOL_OPTIONS.map((o) => (
                     <option key={o} value={o}>{capitalize(o)}</option>
                   ))}
                 </select>

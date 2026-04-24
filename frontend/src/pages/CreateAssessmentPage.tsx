@@ -3,12 +3,13 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import AssessmentResultModal from '../components/AssessmentResultModal'
 import { usePatient } from '../hooks/usePatients'
 import { useCreateAssessment } from '../hooks/useAssessments'
-import type { Assessment, DietType, PhysicalActivityLevel, CreateAssessmentRequest } from '../types'
+import type { Assessment, DietType, PhysicalActivityLevel, AlcoholConsumption, CreateAssessmentRequest } from '../types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DIET_OPTIONS:     readonly DietType[]              = ['fatty', 'mixed', 'healthy']
 const ACTIVITY_OPTIONS: readonly PhysicalActivityLevel[] = ['low', 'moderate', 'high']
+const ALCOHOL_OPTIONS:  readonly AlcoholConsumption[]    = ['no', 'moderate', 'high']
 
 // ── Form state ─────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ interface FormState {
   smoker:                  boolean
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
+  alcohol_consumption:     AlcoholConsumption
   family_history:          boolean
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
@@ -27,6 +29,7 @@ const INITIAL: FormState = {
   smoker:                  false,
   diet_type:               'mixed',
   physical_activity_level: 'moderate',
+  alcohol_consumption:     'no',
   family_history:          false,
   regular_health_checkup:  false,
   prostate_exam_done:      false,
@@ -61,6 +64,7 @@ export default function CreateAssessmentPage() {
       smoker:                  form.smoker,
       diet_type:               form.diet_type,
       physical_activity_level: form.physical_activity_level,
+      alcohol_consumption:     form.alcohol_consumption,
       family_history:          form.family_history,
       regular_health_checkup:  form.regular_health_checkup,
       prostate_exam_done:      form.prostate_exam_done,
@@ -163,6 +167,20 @@ export default function CreateAssessmentPage() {
                   onChange={(e) => set('physical_activity_level', e.target.value as PhysicalActivityLevel)}
                 >
                   {ACTIVITY_OPTIONS.map((o) => (
+                    <option key={o} value={o}>{capitalize(o)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Alcohol consumption */}
+              <div>
+                <Label>Alcohol Consumption</Label>
+                <select
+                  className="input mt-1"
+                  value={form.alcohol_consumption}
+                  onChange={(e) => set('alcohol_consumption', e.target.value as AlcoholConsumption)}
+                >
+                  {ALCOHOL_OPTIONS.map((o) => (
                     <option key={o} value={o}>{capitalize(o)}</option>
                   ))}
                 </select>
