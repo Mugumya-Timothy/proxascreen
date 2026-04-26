@@ -48,7 +48,11 @@ type Assessment struct {
 	HighPercentage         float64         `json:"high_percentage"`
 	ModelConfidence        float64         `json:"model_confidence"`
 	RiskExplanation        string          `json:"risk_explanation"`
+	ActiveRiskFactors      json.RawMessage `json:"active_risk_factors"`
+	ProtectiveFactors      json.RawMessage `json:"protective_factors"`
+	SummaryText            string          `json:"summary_text"`
 	TopContributingFactors json.RawMessage `json:"top_contributing_factors"`
+	LifestyleFactorNotes   json.RawMessage `json:"lifestyle_factor_notes"`
 	ClinicalRecommendation string          `json:"clinical_recommendation"`
 	FeatureImportances     json.RawMessage `json:"feature_importances"`
 	CreatedAt              time.Time       `json:"created_at"`
@@ -89,7 +93,11 @@ type modelPredictResponse struct {
 	HighPercentage         float64         `json:"high_percentage"`
 	ModelConfidence        float64         `json:"model_confidence"`
 	RiskExplanation        string          `json:"risk_explanation"`
+	ActiveRiskFactors      json.RawMessage `json:"active_risk_factors"`
+	ProtectiveFactors      json.RawMessage `json:"protective_factors"`
+	SummaryText            string          `json:"summary_text"`
 	TopContributingFactors json.RawMessage `json:"top_contributing_factors"`
+	LifestyleFactorNotes   json.RawMessage `json:"lifestyle_factor_notes"`
 	ClinicalRecommendation string          `json:"clinical_recommendation"`
 	FeatureImportances     json.RawMessage `json:"feature_importances"`
 }
@@ -138,11 +146,15 @@ func (s *AssessmentService) CreateAssessment(ctx context.Context, p CreateAssess
 			regular_health_checkup, prostate_exam_done,
 			risk_level, low_percentage, medium_percentage, high_percentage,
 			model_confidence, risk_explanation,
-			top_contributing_factors, clinical_recommendation, feature_importances
+			active_risk_factors, protective_factors, summary_text,
+			top_contributing_factors, lifestyle_factor_notes,
+			clinical_recommendation, feature_importances
 		) VALUES (
 			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
 			$12,$13,$14,$15,$16,$17,
-			$18::jsonb,$19,$20::jsonb
+			$18::jsonb,$19::jsonb,$20,
+			$21::jsonb,$22::jsonb,
+			$23,$24::jsonb
 		)
 		RETURNING
 			id, patient_id, clinician_id, age, bmi, smoker, diet_type,
@@ -150,7 +162,9 @@ func (s *AssessmentService) CreateAssessment(ctx context.Context, p CreateAssess
 			regular_health_checkup, prostate_exam_done,
 			risk_level, low_percentage, medium_percentage, high_percentage,
 			model_confidence, risk_explanation,
-			top_contributing_factors, clinical_recommendation, feature_importances,
+			active_risk_factors, protective_factors, summary_text,
+			top_contributing_factors, lifestyle_factor_notes,
+			clinical_recommendation, feature_importances,
 			created_at, updated_at
 	`,
 		p.PatientID, clinicianID, p.Age, p.BMI, p.Smoker, p.DietType,
@@ -158,14 +172,18 @@ func (s *AssessmentService) CreateAssessment(ctx context.Context, p CreateAssess
 		p.RegularHealthCheckup, p.ProstateExamDone,
 		prediction.RiskLevel, prediction.LowPercentage, prediction.MediumPercentage, prediction.HighPercentage,
 		prediction.ModelConfidence, prediction.RiskExplanation,
-		string(prediction.TopContributingFactors), prediction.ClinicalRecommendation, string(prediction.FeatureImportances),
+		string(prediction.ActiveRiskFactors), string(prediction.ProtectiveFactors), prediction.SummaryText,
+		string(prediction.TopContributingFactors), string(prediction.LifestyleFactorNotes),
+		prediction.ClinicalRecommendation, string(prediction.FeatureImportances),
 	).Scan(
 		&a.ID, &a.PatientID, &a.ClinicianID, &a.Age, &a.BMI, &a.Smoker, &a.DietType,
 		&a.PhysicalActivityLevel, &a.AlcoholConsumption, &a.FamilyHistory,
 		&a.RegularHealthCheckup, &a.ProstateExamDone,
 		&a.RiskLevel, &a.LowPercentage, &a.MediumPercentage, &a.HighPercentage,
 		&a.ModelConfidence, &a.RiskExplanation,
-		&a.TopContributingFactors, &a.ClinicalRecommendation, &a.FeatureImportances,
+		&a.ActiveRiskFactors, &a.ProtectiveFactors, &a.SummaryText,
+		&a.TopContributingFactors, &a.LifestyleFactorNotes,
+		&a.ClinicalRecommendation, &a.FeatureImportances,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if err != nil {
@@ -230,7 +248,9 @@ func (s *AssessmentService) GetAssessment(ctx context.Context, id string) (*Asse
 			regular_health_checkup, prostate_exam_done,
 			risk_level, low_percentage, medium_percentage, high_percentage,
 			model_confidence, risk_explanation,
-			top_contributing_factors, clinical_recommendation, feature_importances,
+			active_risk_factors, protective_factors, summary_text,
+			top_contributing_factors, lifestyle_factor_notes,
+			clinical_recommendation, feature_importances,
 			created_at, updated_at
 		FROM assessments WHERE id=$1
 	`, id)
@@ -292,7 +312,9 @@ func scanAssessments(rows pgx.Rows) ([]Assessment, error) {
 			&a.RegularHealthCheckup, &a.ProstateExamDone,
 			&a.RiskLevel, &a.LowPercentage, &a.MediumPercentage, &a.HighPercentage,
 			&a.ModelConfidence, &a.RiskExplanation,
-			&a.TopContributingFactors, &a.ClinicalRecommendation, &a.FeatureImportances,
+			&a.ActiveRiskFactors, &a.ProtectiveFactors, &a.SummaryText,
+			&a.TopContributingFactors, &a.LifestyleFactorNotes,
+			&a.ClinicalRecommendation, &a.FeatureImportances,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan assessment: %w", err)

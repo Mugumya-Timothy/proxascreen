@@ -1,17 +1,18 @@
 import { useState, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import { Link } from 'react-router-dom'
 import RiskBadge from '../../components/RiskBadge'
 import PatientDetailModal from '../../components/PatientDetailModal'
+import AddPatientModal from '../../components/AddPatientModal'
 import { usePatients, useBulkImportPatients } from '../../hooks/usePatients'
 import type { Patient, RiskLevel, BulkImportResult } from '../../types'
 
 // ── Sample CSV content ────────────────────────────────────────────────────────
 
-const SAMPLE_CSV = `full_name,age,date_of_submission,bmi,smoker,diet_type,physical_activity_level,family_history,regular_health_checkup,prostate_exam_done
-John Smith,55,2026-03-27,27.5,false,mixed,moderate,false,true,false
-James Brown,62,2026-03-27,31.2,true,fatty,low,true,false,false
+const SAMPLE_CSV = `full_name,age,date_of_submission,bmi,smoker,diet_type,physical_activity_level,alcohol_consumption,family_history,regular_health_checkup,prostate_exam_done
+John Smith,55,2026-03-27,27.5,false,mixed,moderate,no,false,true,false
+James Brown,62,2026-03-27,31.2,true,fatty,low,moderate,true,false,false
 `
 
 function downloadSampleCSV() {
@@ -24,75 +25,159 @@ function downloadSampleCSV() {
   URL.revokeObjectURL(url)
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type RiskFilter = 'all' | RiskLevel
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PatientsPage() {
-  const [search, setSearch]             = useState('')
+  const [search, setSearch]               = useState('')
+  const [riskFilter, setRiskFilter]       = useState<RiskFilter>('all')
   const [showBulkModal, setShowBulkModal] = useState(false)
-  const [selectedId, setSelectedId]      = useState<string | null>(null)
+  const [showAddPatient, setShowAddPatient] = useState(false)
+  const [selectedId, setSelectedId]       = useState<string | null>(null)
 
   const { data: patients = [], isLoading, isError } = usePatients()
 
+  const riskCounts = useMemo(() => ({
+    all:    patients.length,
+    Low:    patients.filter(p => p.latest_risk_level === 'Low').length,
+    Medium: patients.filter(p => p.latest_risk_level === 'Medium').length,
+    High:   patients.filter(p => p.latest_risk_level === 'High').length,
+  }), [patients])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    if (!q) return patients
-    return patients.filter(
-      (p) =>
+    return patients.filter(p => {
+      const matchSearch = !q ||
         p.full_name.toLowerCase().includes(q) ||
-        p.patient_number.toLowerCase().includes(q),
-    )
-  }, [patients, search])
+        p.patient_number.toLowerCase().includes(q)
+      const matchRisk = riskFilter === 'all' || p.latest_risk_level === riskFilter
+      return matchSearch && matchRisk
+    })
+  }, [patients, search, riskFilter])
+
+  const isFiltered = search !== '' || riskFilter !== 'all'
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {isLoading ? '—' : `${patients.length} total patient${patients.length !== 1 ? 's' : ''}`}
-          </p>
+
+      {/* ── Page header ───────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
+          >
+            <PatientsPageIcon className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold leading-tight text-gray-900">Patients</h1>
+            <p className="text-sm text-gray-500">
+              {isLoading
+                ? <span className="inline-block h-3 w-20 animate-pulse rounded-md bg-gray-200" />
+                : `${patients.length} registered patient${patients.length !== 1 ? 's' : ''}`
+              }
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowBulkModal(true)}
-            className="btn-outline"
+            className="btn-outline gap-1.5"
           >
-            <UploadIcon className="mr-1.5 h-4 w-4" />
-            Bulk Import
+            <UploadIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Bulk Import</span>
+            <span className="sm:hidden">Import</span>
           </button>
-          <Link to="/admin/patients/new" className="btn-primary">
-            + Add Patient
-          </Link>
+          <button onClick={() => setShowAddPatient(true)} className="btn-primary gap-1.5">
+            <PlusIcon className="h-4 w-4" />
+            Add Patient
+          </button>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          placeholder="Search by name or patient number…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="input pl-9"
-        />
+      {/* ── Search + risk filter toolbar ──────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-72">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            placeholder="Search by name or patient ID…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="input pl-9"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {([
+            { key: 'all' as const,    label: 'All',    count: riskCounts.all    },
+            { key: 'Low' as const,    label: 'Low',    count: riskCounts.Low    },
+            { key: 'Medium' as const, label: 'Medium', count: riskCounts.Medium },
+            { key: 'High' as const,   label: 'High',   count: riskCounts.High   },
+          ]).map(({ key, label, count }) => {
+            const active = riskFilter === key
+            const activeCls =
+              key === 'all'    ? 'bg-primary text-white shadow-sm ring-primary' :
+              key === 'Low'    ? 'bg-green-600 text-white shadow-sm ring-green-600' :
+              key === 'Medium' ? 'bg-yellow-500 text-white shadow-sm ring-yellow-500' :
+                                 'bg-red-600 text-white shadow-sm ring-red-600'
+            return (
+              <button
+                key={key}
+                onClick={() => setRiskFilter(key)}
+                className={[
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ring-1',
+                  active
+                    ? activeCls
+                    : 'bg-white text-gray-600 ring-gray-200 hover:ring-gray-300 hover:bg-gray-50',
+                ].join(' ')}
+              >
+                {label}
+                <span className={[
+                  'rounded-full px-1.5 py-px text-[10px] font-bold leading-none tabular-nums',
+                  active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500',
+                ].join(' ')}>
+                  {isLoading ? '–' : count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Error */}
+      {/* ── Error banner ──────────────────────────────────────────────────── */}
       {isError && (
-        <div className="rounded-xl bg-red-50 px-5 py-4 text-sm text-red-700 ring-1 ring-red-200">
-          Failed to load patients. Please refresh.
+        <div className="flex items-center gap-3 rounded-xl bg-red-50 px-5 py-4 text-sm text-red-700 ring-1 ring-red-200">
+          <AlertIcon className="h-4 w-4 shrink-0 text-red-500" />
+          Failed to load patients. Please refresh the page.
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+      {/* ── Result count caption when filtering ───────────────────────────── */}
+      {!isLoading && !isError && isFiltered && (
+        <p className="text-sm text-gray-500">
+          Showing{' '}
+          <span className="font-semibold text-gray-800">{filtered.length}</span>
+          {' '}of{' '}
+          <span className="font-semibold text-gray-800">{patients.length}</span>
+          {' '}patients
+        </p>
+      )}
+
+      {/* ── Desktop table ─────────────────────────────────────────────────── */}
+      <div className="hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 sm:block">
         <table className="min-w-full divide-y divide-gray-100">
           <thead>
-            <tr className="bg-gray-50">
-              {['Patient #', 'Full Name', 'Age', 'Date of Submission', 'Latest Risk', ''].map((h) => (
-                <th key={h} className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <tr className="bg-gray-50/80">
+              {['Patient ID', 'Patient', 'Age', 'Submission Date', 'Risk Level', ''].map((h) => (
+                <th
+                  key={h}
+                  className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                >
                   {h}
                 </th>
               ))}
@@ -103,20 +188,37 @@ export default function PatientsPage() {
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-sm text-gray-400">
-                  {search ? 'No patients match your search.' : 'No patients yet. Add your first patient to get started.'}
+                <td colSpan={6}>
+                  <EmptyState search={search} riskFilter={riskFilter} />
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => <PatientRow key={p.id} patient={p} onView={() => setSelectedId(p.id)} />)
+              filtered.map(p => (
+                <PatientRow key={p.id} patient={p} onView={() => setSelectedId(p.id)} />
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Bulk import modal */}
-      {showBulkModal && (
-        <BulkImportModal onClose={() => setShowBulkModal(false)} />
+      {/* ── Mobile card list ──────────────────────────────────────────────── */}
+      <div className="sm:hidden space-y-2.5">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <MobileSkeletonCard key={i} />)
+        ) : filtered.length === 0 ? (
+          <EmptyState search={search} riskFilter={riskFilter} />
+        ) : (
+          filtered.map(p => (
+            <PatientCard key={p.id} patient={p} onView={() => setSelectedId(p.id)} />
+          ))
+        )}
+      </div>
+
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
+      {showBulkModal && <BulkImportModal onClose={() => setShowBulkModal(false)} />}
+
+      {showAddPatient && (
+        <AddPatientModal base="/admin" onClose={() => setShowAddPatient(false)} />
       )}
 
       {selectedId && (
@@ -126,43 +228,154 @@ export default function PatientsPage() {
   )
 }
 
-// ── Table row ─────────────────────────────────────────────────────────────────
+// ── Avatar helper ─────────────────────────────────────────────────────────────
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map(w => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
+// ── Desktop table row ─────────────────────────────────────────────────────────
 
 function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => void }) {
   return (
-    <tr className="group hover:bg-gray-50 transition-colors">
+    <tr
+      className="group cursor-pointer transition-colors hover:bg-primary/[0.025]"
+      onClick={onView}
+    >
+      {/* Patient ID */}
       <td className="whitespace-nowrap px-5 py-4">
-        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+        <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-bold tracking-wide text-primary">
           {p.patient_number}
         </span>
       </td>
+
+      {/* Name + avatar */}
       <td className="px-5 py-4">
-        <span className="text-sm font-medium text-gray-900">{p.full_name}</span>
+        <div className="flex items-center gap-3">
+          <div
+            aria-hidden
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
+          >
+            {getInitials(p.full_name)}
+          </div>
+          <span className="text-sm font-semibold text-gray-900">{p.full_name}</span>
+        </div>
       </td>
-      <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{p.age}</td>
+
+      {/* Age */}
+      <td className="whitespace-nowrap px-5 py-4">
+        <span className="text-sm text-gray-700">{p.age}</span>
+        <span className="ml-0.5 text-xs text-gray-400">yrs</span>
+      </td>
+
+      {/* Date */}
       <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">
         {formatDate(p.date_of_submission)}
       </td>
+
+      {/* Risk */}
       <td className="whitespace-nowrap px-5 py-4">
         <RiskBadge level={p.latest_risk_level as RiskLevel | null} />
       </td>
+
+      {/* Action */}
       <td className="whitespace-nowrap px-5 py-4 text-right">
         <button
-          onClick={onView}
-          className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
+          onClick={e => { e.stopPropagation(); onView() }}
+          className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 ring-1 ring-gray-200 transition-all hover:bg-primary hover:text-white hover:ring-primary group-hover:ring-primary/30"
         >
-          View →
+          View
+          <ChevronRightSmIcon className="h-3 w-3" />
         </button>
       </td>
     </tr>
   )
 }
 
+// ── Mobile patient card ───────────────────────────────────────────────────────
+
+function PatientCard({ patient: p, onView }: { patient: Patient; onView: () => void }) {
+  return (
+    <button
+      onClick={onView}
+      className="w-full text-left rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-gray-100 flex items-center gap-4 transition-all hover:shadow-md hover:ring-primary/20 active:scale-[0.99]"
+    >
+      {/* Avatar */}
+      <div
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow"
+        style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
+      >
+        {getInitials(p.full_name)}
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-semibold text-gray-900">{p.full_name}</p>
+          <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+            {p.patient_number}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-gray-400">
+          {p.age} yrs · {formatDate(p.date_of_submission)}
+        </p>
+      </div>
+
+      {/* Risk + chevron */}
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <RiskBadge level={p.latest_risk_level as RiskLevel | null} size="sm" />
+        <ChevronRightSmIcon className="h-3.5 w-3.5 text-gray-300" />
+      </div>
+    </button>
+  )
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState({ search, riskFilter }: { search: string; riskFilter: RiskFilter }) {
+  const isFiltered = search !== '' || riskFilter !== 'all'
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-gray-100 sm:rounded-none sm:ring-0">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50 ring-1 ring-gray-100">
+        {isFiltered
+          ? <SearchIcon className="h-6 w-6 text-gray-300" />
+          : <PatientsPageIcon className="h-6 w-6 text-gray-300" />
+        }
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-700">
+          {isFiltered ? 'No matching patients' : 'No patients yet'}
+        </p>
+        <p className="mx-auto mt-1 max-w-xs text-xs text-gray-400">
+          {isFiltered
+            ? "Try adjusting your search or risk filter to find what you're looking for."
+            : 'Add your first patient to get started with assessments.'
+          }
+        </p>
+      </div>
+      {!isFiltered && (
+        <Link to="/admin/patients/new" className="btn-primary text-xs">
+          <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+          Add First Patient
+        </Link>
+      )}
+    </div>
+  )
+}
+
 // ── Bulk import modal ─────────────────────────────────────────────────────────
 
 function BulkImportModal({ onClose }: { onClose: () => void }) {
-  const fileRef       = useRef<HTMLInputElement>(null)
-  const [file, setFile]     = useState<File | null>(null)
+  const fileRef         = useRef<HTMLInputElement>(null)
+  const [file, setFile]       = useState<File | null>(null)
   const [results, setResults] = useState<BulkImportResult[] | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -181,13 +394,13 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
     handleFileChange(e.dataTransfer.files[0])
   }
 
-  const successCount = results?.filter((r) => !r.error).length ?? 0
-  const errorCount   = results?.filter((r) => !!r.error).length ?? 0
+  const successCount = results?.filter(r => !r.error).length ?? 0
+  const errorCount   = results?.filter(r => !!r.error).length ?? 0
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100 max-h-[90vh]">
 
@@ -226,24 +439,25 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
 
           {/* Drop zone */}
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 transition-colors ${
+            className={[
+              'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 transition-colors',
               dragOver
                 ? 'border-primary bg-primary/5'
                 : file
                   ? 'border-green-300 bg-green-50'
-                  : 'border-gray-200 bg-gray-50 hover:border-primary/50 hover:bg-primary/5'
-            }`}
+                  : 'border-gray-200 bg-gray-50 hover:border-primary/50 hover:bg-primary/5',
+            ].join(' ')}
           >
             <input
               ref={fileRef}
               type="file"
               accept=".csv,.xlsx,.xls"
               className="hidden"
-              onChange={(e) => handleFileChange(e.target.files?.[0])}
+              onChange={e => handleFileChange(e.target.files?.[0])}
             />
             {file ? (
               <>
@@ -277,7 +491,8 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
             <p className="font-semibold mb-1">Required columns (case-insensitive):</p>
             <p className="font-mono leading-relaxed">
               full_name · age · date_of_submission · bmi · smoker · diet_type ·
-              physical_activity_level · family_history · regular_health_checkup · prostate_exam_done
+              physical_activity_level · alcohol_consumption · family_history ·
+              regular_health_checkup · prostate_exam_done
             </p>
           </div>
 
@@ -316,7 +531,7 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-50 bg-white">
-                      {results.filter((r) => r.error).map((r) => (
+                      {results.filter(r => r.error).map(r => (
                         <tr key={r.row}>
                           <td className="px-4 py-2 font-mono text-gray-600">{r.row}</td>
                           <td className="px-4 py-2 text-red-600">{r.error}</td>
@@ -333,17 +548,15 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
         {/* Footer */}
         <div className="flex gap-3 border-t border-gray-100 px-6 py-4 shrink-0">
           {results ? (
-            <button onClick={onClose} className="btn-primary flex-1">
-              Done
-            </button>
+            <button onClick={onClose} className="btn-primary flex-1">Done</button>
           ) : (
             <>
               <button
                 onClick={() => file && mutation.mutate(file, {
-                  onSuccess: (data) => {
+                  onSuccess: data => {
                     setResults(data)
-                    const ok  = data.filter((r) => !r.error).length
-                    const bad = data.filter((r) =>  r.error).length
+                    const ok  = data.filter(r => !r.error).length
+                    const bad = data.filter(r =>  r.error).length
                     if (bad === 0) {
                       toast.success(`${ok} patient${ok !== 1 ? 's' : ''} imported successfully`)
                     } else {
@@ -352,7 +565,7 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
                       })
                     }
                   },
-                  onError: (err) => {
+                  onError: err => {
                     toast.error('Import failed', {
                       description: err instanceof Error ? err.message : 'Please try again',
                     })
@@ -363,9 +576,7 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
               >
                 {mutation.isPending ? 'Importing…' : 'Import'}
               </button>
-              <button onClick={onClose} className="btn-outline flex-1">
-                Cancel
-              </button>
+              <button onClick={onClose} className="btn-outline flex-1">Cancel</button>
             </>
           )}
         </div>
@@ -375,17 +586,39 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ── Skeleton row ──────────────────────────────────────────────────────────────
+// ── Skeleton — desktop ────────────────────────────────────────────────────────
 
 function SkeletonRow() {
   return (
     <tr>
-      {[64, 160, 32, 96, 80, 48].map((w, i) => (
+      {[72, 200, 40, 104, 80, 56].map((w, i) => (
         <td key={i} className="px-5 py-4">
-          <div className="h-4 animate-pulse rounded bg-gray-100" style={{ width: w }} />
+          {i === 1 ? (
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-gray-100 animate-pulse shrink-0" />
+              <div className="h-4 rounded-lg bg-gray-100 animate-pulse" style={{ width: 140 }} />
+            </div>
+          ) : (
+            <div className="h-4 animate-pulse rounded-lg bg-gray-100" style={{ width: w }} />
+          )}
         </td>
       ))}
     </tr>
+  )
+}
+
+// ── Skeleton — mobile ─────────────────────────────────────────────────────────
+
+function MobileSkeletonCard() {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl bg-white px-4 py-4 ring-1 ring-gray-100">
+      <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100 animate-pulse" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3.5 w-36 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-3 w-24 animate-pulse rounded-lg bg-gray-100" />
+      </div>
+      <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+    </div>
   )
 }
 
@@ -402,9 +635,18 @@ function formatDate(iso: string) {
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
-      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    </svg>
+  )
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
   )
 }
@@ -412,7 +654,7 @@ function SearchIcon({ className }: { className?: string }) {
 function UploadIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
-      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
     </svg>
@@ -422,7 +664,7 @@ function UploadIcon({ className }: { className?: string }) {
 function DownloadIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
-      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
     </svg>
@@ -432,7 +674,7 @@ function DownloadIcon({ className }: { className?: string }) {
 function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
-      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
@@ -441,9 +683,38 @@ function XIcon({ className }: { className?: string }) {
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
-      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function ChevronRightSmIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+  )
+}
+
+function AlertIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+  )
+}
+
+function PatientsPageIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
   )
 }

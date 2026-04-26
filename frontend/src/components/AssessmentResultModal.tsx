@@ -7,7 +7,7 @@ import {
   ResponsiveContainer,
   LabelList,
 } from 'recharts'
-import type { Assessment, ContributingFactor } from '../types'
+import type { Assessment, ContributingFactor, LifestyleFactorNote } from '../types'
 import RiskBadge from './RiskBadge'
 
 interface Props {
@@ -21,7 +21,6 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-// Weighted position 0–100: where on the Low→High spectrum this patient sits.
 function riskPosition(low: number, medium: number, high: number): number {
   return low * 0 + medium * 0.5 + high * 1
 }
@@ -57,14 +56,12 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
     assessment.high_percentage,
   )
 
-  // Probability chart — highest risk shown at top
   const probData = [
     { name: 'High Risk',   value: assessment.high_percentage,   fill: '#ef4444' },
     { name: 'Medium Risk', value: assessment.medium_percentage, fill: '#facc15' },
     { name: 'Low Risk',    value: assessment.low_percentage,    fill: '#22c55e' },
   ]
 
-  // Feature importance chart — sorted descending, top 3 highlighted red
   const fiEntries = Object.entries(assessment.feature_importances).sort(
     (a, b) => b[1] - a[1],
   )
@@ -72,27 +69,35 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
   const fiData = fiEntries.map(([key, val]) => ({
     name:  featureLabel(key),
     value: val,
-    fill:  top3Keys.has(key) ? '#ef4444' : '#3b82f6',
+    fill:  top3Keys.has(key) ? '#ef4444' : '#5FB0E3',
   }))
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="flex w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100 max-h-[92vh]">
+      <div className="flex w-full max-w-3xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl max-h-[92vh]">
 
         {/* ── Header ── */}
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">Assessment Complete</h2>
-            <p className="mt-0.5 text-xs text-gray-500">Prostate cancer risk prediction result</p>
+        <div
+          className="flex shrink-0 items-center justify-between rounded-t-2xl px-6 py-5"
+          style={{ background: 'linear-gradient(135deg, #0d2e45 0%, #1a4f6d 100%)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+              <ChartIcon className="h-5 w-5 text-white/80" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Assessment Complete</h2>
+              <p className="mt-0.5 text-xs text-white/55">Prostate cancer risk prediction result</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <RiskBadge level={assessment.risk_level} size="md" />
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Close"
             >
               <XIcon className="h-5 w-5" />
@@ -101,7 +106,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
         </div>
 
         {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
 
           {/* 1 — Risk gauge */}
           <RiskGauge
@@ -110,7 +115,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             position={pos}
           />
 
-          {/* 2 — Probability + Key inputs (two columns) */}
+          {/* 2 — Probability + Key inputs */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SectionBox title="Probability Distribution">
               <div className="h-[130px]">
@@ -137,7 +142,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
                         dataKey="value"
                         position="right"
                         formatter={(v: unknown) => `${Number(v).toFixed(1)}%`}
-                        style={{ fontSize: 11, fontWeight: 600, fill: '#111827' }}
+                        style={{ fontSize: 11, fontWeight: 700, fill: '#111827' }}
                       />
                     </Bar>
                   </BarChart>
@@ -154,7 +159,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
                   { label: 'Diet',          value: capitalize(assessment.diet_type) },
                   { label: 'Activity',      value: capitalize(assessment.physical_activity_level) },
                   { label: 'Family Hx',     value: assessment.family_history ? 'Yes' : 'No' },
-                  { label: 'Prostate exam', value: assessment.prostate_exam_done ? 'Yes' : 'No' },
+                  { label: 'Prostate Exam', value: assessment.prostate_exam_done ? 'Yes' : 'No' },
                 ] as const).map(({ label, value }) => (
                   <div
                     key={label}
@@ -170,12 +175,13 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
 
           {/* 3 — Assessment summary */}
           <SectionBox title="Assessment Summary">
-            <p className="text-sm leading-relaxed text-gray-700">
-              {assessment.risk_explanation}
-            </p>
+            <AssessmentSummary assessment={assessment} />
           </SectionBox>
 
-          {/* 4 — Contributing factors */}
+          {/* 4 — Primary risk factors */}
+          <PrimaryRiskFactors assessment={assessment} />
+
+          {/* 5 — Contributing factors */}
           <SectionBox title="Key Contributing Factors">
             <div className="space-y-2">
               {assessment.top_contributing_factors.map((factor, i) => (
@@ -184,10 +190,13 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             </div>
           </SectionBox>
 
-          {/* 5 — Feature importance chart */}
+          {/* 6 — Feature importance chart */}
           <SectionBox title="Feature Importance — Overall Model">
             <p className="mb-3 text-xs text-gray-400">
-              Red = Top 3 most influential features
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+                Top 3 most influential features
+              </span>
             </p>
             <div style={{ height: fiData.length * 26 + 8 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -221,19 +230,23 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             </div>
           </SectionBox>
 
-          {/* 6 — Clinical recommendation */}
+          {/* 7 — Clinical recommendation */}
           <SectionBox title="Clinical Recommendation">
             <p className="text-sm leading-relaxed text-gray-700">
               {assessment.clinical_recommendation}
             </p>
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
-                Disclaimer
-              </p>
-              <p className="text-xs leading-relaxed text-amber-700">
-                This is a clinical decision support tool only. It does not diagnose prostate
-                cancer. Final clinical decisions rest with the attending health worker.
-              </p>
+            <div className="mt-4 overflow-hidden rounded-xl border border-amber-200">
+              <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-200">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700">
+                  Clinical Disclaimer
+                </p>
+              </div>
+              <div className="bg-amber-50/50 px-4 py-3">
+                <p className="text-xs leading-relaxed text-amber-700">
+                  This is a clinical decision support tool only. It does not diagnose prostate
+                  cancer. Final clinical decisions rest with the attending health worker.
+                </p>
+              </div>
             </div>
           </SectionBox>
 
@@ -251,6 +264,166 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
   )
 }
 
+// ── Assessment summary ────────────────────────────────────────────────────────
+
+function AssessmentSummary({ assessment }: { assessment: Assessment }) {
+  const hasStructured = assessment.summary_text && assessment.summary_text.length > 0
+
+  if (!hasStructured) {
+    return <p className="text-sm leading-relaxed text-gray-700">{assessment.risk_explanation}</p>
+  }
+
+  const activeCount = assessment.active_risk_factors?.length ?? 0
+  const riskLabel   = assessment.risk_level.toUpperCase()
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-gray-900">
+        This patient was assessed as{' '}
+        <span className={
+          assessment.risk_level === 'High'   ? 'font-bold text-red-600' :
+          assessment.risk_level === 'Medium' ? 'font-bold text-yellow-600' :
+                                               'font-bold text-green-600'
+        }>
+          {riskLabel} RISK
+        </span>{' '}
+        of prostate cancer.
+      </p>
+
+      {activeCount > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+            Active risk factors ({activeCount} of 4)
+          </p>
+          <ol className="space-y-1.5">
+            {assessment.active_risk_factors.map((f, i) => (
+              <li key={i} className="flex items-start gap-2.5 rounded-lg border-l-2 border-red-400 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <span className="shrink-0 font-bold text-red-500">{i + 1}.</span>
+                {f}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {(assessment.protective_factors?.length ?? 0) > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+            Protective factors
+          </p>
+          <ol className="space-y-1.5">
+            {assessment.protective_factors.map((f, i) => (
+              <li key={i} className="flex items-start gap-2.5 rounded-lg border-l-2 border-green-400 bg-green-50 px-3 py-2 text-sm text-green-700">
+                <span className="shrink-0 font-bold text-green-500">{i + 1}.</span>
+                {f}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="text-sm leading-relaxed text-gray-700">{assessment.summary_text}</p>
+
+      {(assessment.lifestyle_factor_notes?.length ?? 0) > 0 && (
+        <div className="space-y-2 border-t border-gray-100 pt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+            Lifestyle &amp; Demographic Factors
+          </p>
+          {assessment.lifestyle_factor_notes.map((note) => (
+            <LifestyleNoteRow key={note.feature} note={note} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LifestyleNoteRow({ note }: { note: LifestyleFactorNote }) {
+  const increased = note.direction === 'Increased risk'
+  return (
+    <div className={`overflow-hidden rounded-lg border-l-2 ${
+      increased ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'
+    }`}>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className={`text-xs font-bold ${increased ? 'text-red-500' : 'text-green-500'}`}>
+          {increased ? '▲' : '▼'}
+        </span>
+        <p className="text-xs font-semibold text-gray-800">{note.label}</p>
+        <span className={`ml-auto text-xs font-medium ${increased ? 'text-red-600' : 'text-green-600'}`}>
+          {note.direction}
+        </span>
+      </div>
+      <p className="border-t border-black/5 px-3 py-2 text-xs leading-relaxed text-gray-600">
+        {note.clinical_note}
+      </p>
+    </div>
+  )
+}
+
+// ── Primary risk factors ──────────────────────────────────────────────────────
+
+const PRIMARY_RISK_FACTORS: {
+  label:        string
+  isActive:     (a: Assessment) => boolean
+  activeText:   string
+  inactiveText: string
+}[] = [
+  {
+    label:        'Smoking status',
+    isActive:     (a) => a.smoker,
+    activeText:   'Active — patient is a smoker',
+    inactiveText: 'Not active (non-smoker)',
+  },
+  {
+    label:        'Family history of prostate cancer',
+    isActive:     (a) => a.family_history,
+    activeText:   'Active — family history present',
+    inactiveText: 'Not active (no family history)',
+  },
+  {
+    label:        'Regular health checkup attendance',
+    isActive:     (a) => !a.regular_health_checkup,
+    activeText:   'Active — no regular checkups attended',
+    inactiveText: 'Not active (attends regular checkups)',
+  },
+  {
+    label:        'Prior prostate examination',
+    isActive:     (a) => !a.prostate_exam_done,
+    activeText:   'Active — no prior examination on record',
+    inactiveText: 'Not active (prior examination on record)',
+  },
+]
+
+function PrimaryRiskFactors({ assessment }: { assessment: Assessment }) {
+  const resolved   = PRIMARY_RISK_FACTORS.map((f) => ({ ...f, active: f.isActive(assessment) }))
+  const activeCount = resolved.filter((f) => f.active).length
+
+  return (
+    <SectionBox title={`Primary Risk Factors Assessed (${activeCount} of 4 active)`}>
+      <div className="space-y-2">
+        {resolved.map(({ label, active, activeText, inactiveText }) => (
+          <div
+            key={label}
+            className={`flex items-center gap-3 overflow-hidden rounded-lg border-l-2 px-3 py-2.5 ${
+              active
+                ? 'border-red-400 bg-red-50'
+                : 'border-green-400 bg-green-50'
+            }`}
+          >
+            <span className={`h-2 w-2 shrink-0 rounded-full ${active ? 'bg-red-500' : 'bg-green-500'}`} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900">{label}</p>
+              <p className={`text-xs ${active ? 'text-red-600' : 'text-green-600'}`}>
+                {active ? activeText : inactiveText}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionBox>
+  )
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function RiskGauge({
@@ -263,17 +436,17 @@ function RiskGauge({
   position:   number
 }) {
   const theme = {
-    Low:    { ring: 'ring-green-200',  bg: 'bg-green-50',  text: 'text-green-700'  },
-    Medium: { ring: 'ring-yellow-200', bg: 'bg-yellow-50', text: 'text-yellow-700' },
-    High:   { ring: 'ring-red-200',    bg: 'bg-red-50',    text: 'text-red-700'    },
+    Low:    { ring: 'ring-green-200',  bg: 'bg-green-50',  text: 'text-green-700',  label: 'text-green-800'  },
+    Medium: { ring: 'ring-yellow-200', bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'text-yellow-800' },
+    High:   { ring: 'ring-red-200',    bg: 'bg-red-50',    text: 'text-red-700',    label: 'text-red-800'    },
   }
-  const t        = theme[riskLevel as keyof typeof theme] ?? theme.High
-  const needleX  = Math.min(Math.max(position, 1.5), 98.5)
+  const t       = theme[riskLevel as keyof typeof theme] ?? theme.High
+  const needleX = Math.min(Math.max(position, 1.5), 98.5)
 
   return (
-    <div className={`rounded-xl ring-1 px-5 py-4 ${t.bg} ${t.ring}`}>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+    <div className={`overflow-hidden rounded-xl ring-1 px-5 py-4 ${t.bg} ${t.ring}`}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">
           Patient Risk Level Assessment
         </p>
         <span className={`text-sm font-bold ${t.text}`}>
@@ -281,28 +454,29 @@ function RiskGauge({
         </span>
       </div>
 
-      {/* Gradient strip */}
-      <div className="relative pt-2 pb-5">
+      {/* Gauge */}
+      <div className="relative pb-6 pt-1">
+        {/* Track */}
         <div
-          className="h-5 w-full rounded-full overflow-hidden"
+          className="h-6 w-full overflow-hidden rounded-full shadow-inner"
           style={{
             background:
               'linear-gradient(to right, #22c55e, #86efac 30%, #facc15 50%, #fb923c 70%, #ef4444)',
           }}
         />
-        {/* Needle indicator */}
+        {/* Needle */}
         <div
-          className="pointer-events-none absolute top-0 flex flex-col items-center"
-          style={{ left: `${needleX}%`, transform: 'translateX(-50%)' }}
+          className="pointer-events-none absolute top-1 -translate-x-1/2"
+          style={{ left: `${needleX}%` }}
         >
-          <div className="h-8 w-0.5 rounded bg-gray-900" />
-          <svg width="10" height="6" viewBox="0 0 10 6" className="-mt-px">
-            <polygon points="0,0 10,0 5,6" fill="#111827" />
+          <div className="mx-auto h-7 w-0.5 rounded-full bg-gray-900 shadow" />
+          <svg width="8" height="5" viewBox="0 0 8 5" className="mx-auto -mt-0.5">
+            <polygon points="0,0 8,0 4,5" fill="#111827" />
           </svg>
         </div>
 
         {/* Zone labels */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs font-semibold">
+        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs font-bold">
           <span className="text-green-600">LOW</span>
           <span className="text-yellow-600">MEDIUM</span>
           <span className="text-red-600">HIGH</span>
@@ -312,59 +486,47 @@ function RiskGauge({
   )
 }
 
-function SectionBox({
-  title,
-  children,
-}: {
-  title:    string
-  children: React.ReactNode
-}) {
+function SectionBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
-        {title}
-      </h3>
-      {children}
+    <div className="overflow-hidden rounded-xl border border-gray-100">
+      <div className="border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">{title}</h3>
+      </div>
+      <div className="p-4">
+        {children}
+      </div>
     </div>
   )
 }
 
-function FactorRow({
-  factor,
-  index,
-}: {
-  factor: ContributingFactor
-  index:  number
-}) {
+function FactorRow({ factor, index }: { factor: ContributingFactor; index: number }) {
   const increased = factor.direction === 'Increased risk'
   return (
-    <div
-      className={`flex items-start gap-3 rounded-lg px-3.5 py-3 ${
-        increased
-          ? 'bg-red-50 ring-1 ring-red-100'
-          : 'bg-green-50 ring-1 ring-green-100'
-      }`}
-    >
-      <span
-        className={`mt-0.5 shrink-0 text-sm font-bold ${
-          increased ? 'text-red-500' : 'text-green-500'
-        }`}
-      >
+    <div className={`flex items-start gap-3 overflow-hidden rounded-lg border-l-2 px-3 py-2.5 ${
+      increased ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'
+    }`}>
+      <span className={`mt-0.5 shrink-0 text-sm font-bold ${increased ? 'text-red-500' : 'text-green-500'}`}>
         {increased ? '▲' : '▼'}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-sm font-semibold text-gray-900">
           {index}. {factor.factor}
         </p>
-        <p
-          className={`mt-0.5 text-xs ${
-            increased ? 'text-red-600' : 'text-green-600'
-          }`}
-        >
+        <p className={`mt-0.5 text-xs ${increased ? 'text-red-600' : 'text-green-600'}`}>
           {factor.strength} &mdash; {factor.direction}
         </p>
       </div>
     </div>
+  )
+}
+
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
   )
 }
 

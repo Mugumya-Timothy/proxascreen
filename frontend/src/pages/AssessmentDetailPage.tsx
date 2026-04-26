@@ -13,7 +13,7 @@ import RiskBadge from '../components/RiskBadge'
 import { useAssessment } from '../hooks/useAssessments'
 import { usePatient } from '../hooks/usePatients'
 import { generateAssessmentPDF } from '../utils/generatePDF'
-import type { ContributingFactor } from '../types'
+import type { Assessment, ContributingFactor, LifestyleFactorNote } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -209,10 +209,13 @@ export default function AssessmentDetailPage() {
 
       {/* 3 — Assessment summary */}
       <SectionBox title="Assessment Summary">
-        <p className="text-sm leading-relaxed text-gray-700">{assessment.risk_explanation}</p>
+        <AssessmentSummary assessment={assessment} />
       </SectionBox>
 
-      {/* 4 — Contributing factors */}
+      {/* 4 — Primary risk factors */}
+      <PrimaryRiskFactors assessment={assessment} />
+
+      {/* 5 — Contributing factors */}
       <SectionBox title="Key Contributing Factors">
         <div className="space-y-2">
           {assessment.top_contributing_factors.map((factor, i) => (
@@ -221,7 +224,7 @@ export default function AssessmentDetailPage() {
         </div>
       </SectionBox>
 
-      {/* 5 — Feature importance */}
+      {/* 6 — Feature importance */}
       <SectionBox title="Feature Importance — Overall Model">
         <p className="mb-3 text-xs text-gray-400">Red = Top 3 most influential features</p>
         <div style={{ height: fiData.length * 26 + 8 }}>
@@ -256,7 +259,7 @@ export default function AssessmentDetailPage() {
         </div>
       </SectionBox>
 
-      {/* 6 — Clinical recommendation */}
+      {/* 7 — Clinical recommendation */}
       <SectionBox title="Clinical Recommendation">
         <p className="text-sm leading-relaxed text-gray-700">
           {assessment.clinical_recommendation}
@@ -286,6 +289,166 @@ export default function AssessmentDetailPage() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+// ── Assessment summary (structured) ──────────────────────────────────────────
+
+function AssessmentSummary({ assessment }: { assessment: Assessment }) {
+  const hasStructured = assessment.summary_text && assessment.summary_text.length > 0
+
+  if (!hasStructured) {
+    return <p className="text-sm leading-relaxed text-gray-700">{assessment.risk_explanation}</p>
+  }
+
+  const activeCount = assessment.active_risk_factors?.length ?? 0
+  const riskLabel   = assessment.risk_level.toUpperCase()
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-gray-900">
+        This patient was assessed as{' '}
+        <span className={
+          assessment.risk_level === 'High'   ? 'text-red-600 font-semibold' :
+          assessment.risk_level === 'Medium' ? 'text-yellow-600 font-semibold' :
+                                               'text-green-600 font-semibold'
+        }>
+          {riskLabel} RISK
+        </span>{' '}
+        of prostate cancer.
+      </p>
+
+      {activeCount > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+            Active risk factors ({activeCount} of 4)
+          </p>
+          <ol className="space-y-1">
+            {assessment.active_risk_factors.map((f, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-red-700">
+                <span className="shrink-0 font-semibold text-red-500">({i + 1})</span>
+                {f}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {(assessment.protective_factors?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+            Protective factors
+          </p>
+          <ol className="space-y-1">
+            {assessment.protective_factors.map((f, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-green-700">
+                <span className="shrink-0 font-semibold text-green-500">({i + 1})</span>
+                {f}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="text-sm leading-relaxed text-gray-700">{assessment.summary_text}</p>
+
+      {(assessment.lifestyle_factor_notes?.length ?? 0) > 0 && (
+        <div className="space-y-2 border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Lifestyle &amp; Demographic Factors
+          </p>
+          {assessment.lifestyle_factor_notes.map((note) => (
+            <LifestyleNoteRow key={note.feature} note={note} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LifestyleNoteRow({ note }: { note: LifestyleFactorNote }) {
+  const increased = note.direction === 'Increased risk'
+  return (
+    <div className={`rounded-lg px-3.5 py-3 ${
+      increased ? 'bg-red-50 ring-1 ring-red-100' : 'bg-green-50 ring-1 ring-green-100'
+    }`}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`text-xs font-bold ${increased ? 'text-red-500' : 'text-green-500'}`}>
+          {increased ? '▲' : '▼'}
+        </span>
+        <p className="text-xs font-semibold text-gray-800">{note.label}</p>
+        <span className={`ml-auto text-xs ${increased ? 'text-red-600' : 'text-green-600'}`}>
+          {note.direction}
+        </span>
+      </div>
+      <p className="text-xs leading-relaxed text-gray-600 pl-4">{note.clinical_note}</p>
+    </div>
+  )
+}
+
+// ── Primary risk factors ──────────────────────────────────────────────────────
+
+const PRIMARY_RISK_FACTORS: {
+  label:        string
+  isActive:     (a: Assessment) => boolean
+  activeText:   string
+  inactiveText: string
+}[] = [
+  {
+    label:        'Smoking status',
+    isActive:     (a) => a.smoker,
+    activeText:   'Active — patient is a smoker',
+    inactiveText: 'Not active (non-smoker)',
+  },
+  {
+    label:        'Family history of prostate cancer',
+    isActive:     (a) => a.family_history,
+    activeText:   'Active — family history present',
+    inactiveText: 'Not active (no family history)',
+  },
+  {
+    label:        'Regular health checkup attendance',
+    isActive:     (a) => !a.regular_health_checkup,
+    activeText:   'Active — no regular checkups attended',
+    inactiveText: 'Not active (attends regular checkups)',
+  },
+  {
+    label:        'Prior prostate examination',
+    isActive:     (a) => !a.prostate_exam_done,
+    activeText:   'Active — no prior examination on record',
+    inactiveText: 'Not active (prior examination on record)',
+  },
+]
+
+function PrimaryRiskFactors({ assessment }: { assessment: Assessment }) {
+  const resolved = PRIMARY_RISK_FACTORS.map((f) => ({ ...f, active: f.isActive(assessment) }))
+  const activeCount = resolved.filter((f) => f.active).length
+
+  return (
+    <SectionBox title={`Primary Risk Factors Assessed (${activeCount} of 4 active)`}>
+      <div className="space-y-2">
+        {resolved.map(({ label, active, activeText, inactiveText }) => (
+          <div
+            key={label}
+            className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 ${
+              active ? 'bg-red-50 ring-1 ring-red-100' : 'bg-green-50 ring-1 ring-green-100'
+            }`}
+          >
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                active ? 'bg-red-500' : 'bg-green-500'
+              }`}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900">{label}</p>
+              <p className={`text-xs ${active ? 'text-red-600' : 'text-green-600'}`}>
+                {active ? activeText : inactiveText}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionBox>
+  )
+}
 
 function RiskGauge({
   riskLevel,

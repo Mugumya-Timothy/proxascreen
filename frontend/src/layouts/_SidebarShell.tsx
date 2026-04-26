@@ -23,12 +23,13 @@ type Props = {
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
 export default function SidebarShell({ navItems }: Props) {
-  const { signOut }      = useClerk()
-  const { user }         = useUser()
-  const navigate         = useNavigate()
-  const [open, setOpen]  = useState(false)
+  const { signOut }     = useClerk()
+  const { user }        = useUser()
+  const navigate        = useNavigate()
+  const [open, setOpen] = useState(false)
 
   const fullName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'User'
+  const email    = user?.primaryEmailAddress?.emailAddress ?? ''
   const { data: currentUser } = useCurrentUser()
   const role     = (currentUser?.role ?? 'clinician') as 'admin' | 'clinician'
   const initials = fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -40,24 +41,24 @@ export default function SidebarShell({ navItems }: Props) {
 
   // ── Sidebar inner content (reused for both fixed mobile & static desktop) ──
   const sidebarBody = (
-    <div className="flex h-full flex-col bg-white">
-      {/* Logo */}
-      <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-5 gap-[10px]">
+    <div
+      className="flex h-full flex-col"
+      style={{ background: 'linear-gradient(180deg, #0d2e45 0%, #1a4f6d 100%)' }}
+    >
+      {/* ── Logo ──────────────────────────────────────────────────────────── */}
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-5">
         <LogoMark />
-        <div className="flex flex-col items-start">
-          <span style={{ fontSize: '20px', lineHeight: 1, color: '#5FB0E3', letterSpacing: 0 }}>
-            <span style={{ fontWeight: 400 }}>Proxa</span>
-            <span style={{ fontWeight: 600 }}>Screen</span>
-          </span>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8a8a8a', marginTop: '3px' }}>
-            {role}
+        <div className="flex flex-col items-start leading-none">
+          <span className="text-[19px] tracking-tight text-white">
+            <span className="font-light">Proxa</span>
+            <span className="font-bold">Screen</span>
           </span>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+      {/* ── Nav ───────────────────────────────────────────────────────────── */}
+      <nav className="flex-1 overflow-y-auto px-3 py-5">
+        <p className="mb-3 px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-white/25">
           Menu
         </p>
         <ul className="space-y-0.5">
@@ -69,22 +70,42 @@ export default function SidebarShell({ navItems }: Props) {
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   [
-                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-100',
+                    'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
                     isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
+                      ? 'text-white'
+                      : 'text-white/50 hover:bg-white/[0.06] hover:text-white/90',
                   ].join(' ')
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <span className={[
-                      'flex h-5 w-5 shrink-0 items-center justify-center transition-colors',
-                      isActive ? 'text-primary' : 'text-gray-400 group-hover:text-gray-600',
-                    ].join(' ')}>
+                    {/* Active background */}
+                    {isActive && (
+                      <span
+                        className="absolute inset-0 rounded-xl"
+                        style={{ background: 'rgba(95,176,227,0.13)' }}
+                      />
+                    )}
+                    {/* Active left accent bar */}
+                    {isActive && (
+                      <span
+                        className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full"
+                        style={{ background: '#5FB0E3' }}
+                      />
+                    )}
+                    {/* Icon */}
+                    <span
+                      className={[
+                        'relative flex h-[18px] w-[18px] shrink-0 items-center justify-center transition-colors',
+                        isActive
+                          ? 'text-primary'
+                          : 'text-white/35 group-hover:text-white/65',
+                      ].join(' ')}
+                    >
                       {item.icon}
                     </span>
-                    {item.label}
+                    {/* Label */}
+                    <span className="relative tracking-wide">{item.label}</span>
                   </>
                 )}
               </NavLink>
@@ -93,23 +114,41 @@ export default function SidebarShell({ navItems }: Props) {
         </ul>
       </nav>
 
-      {/* User footer */}
-      <div className="shrink-0 border-t border-gray-100 p-4">
+      {/* ── Divider ───────────────────────────────────────────────────────── */}
+      <div className="mx-4 h-px bg-white/10" />
+
+      {/* ── User footer ───────────────────────────────────────────────────── */}
+      <div className="shrink-0 space-y-1 p-3">
         <NavLink
           to="/settings/reset-password"
-          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 transition-colors"
+          className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.06]"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">
+          {/* Gradient avatar */}
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white shadow"
+            style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
+          >
             {initials}
           </div>
+
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900 leading-tight">{fullName}</p>
+            <p className="truncate text-sm font-semibold leading-tight text-white">
+              {fullName}
+            </p>
+            {email && (
+              <p className="mt-0.5 truncate text-[11px] leading-tight text-white/35">
+                {email}
+              </p>
+            )}
           </div>
+
+          {/* Settings caret hint */}
+          <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-white/20 transition-colors group-hover:text-white/40" />
         </NavLink>
 
         <button
           onClick={handleSignOut}
-          className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-white/35 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           <SignOutIcon className="h-4 w-4 shrink-0" />
           Sign out
@@ -124,7 +163,7 @@ export default function SidebarShell({ navItems }: Props) {
       {/* ── Mobile overlay backdrop ────────────────────────────────────────── */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={() => setOpen(false)}
           aria-hidden
         />
@@ -133,8 +172,8 @@ export default function SidebarShell({ navItems }: Props) {
       {/* ── Sidebar — fixed on mobile, static on desktop ──────────────────── */}
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-50 w-64 transition-transform duration-300 ease-in-out shadow-lg',
-          'md:relative md:z-auto md:shadow-[1px_0_0_0_#f3f4f6] md:translate-x-0 md:flex md:shrink-0 md:flex-col',
+          'fixed inset-y-0 left-0 z-50 w-64 shadow-2xl transition-transform duration-300 ease-in-out',
+          'md:relative md:z-auto md:shadow-none md:translate-x-0 md:flex md:shrink-0 md:flex-col',
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
@@ -145,10 +184,10 @@ export default function SidebarShell({ navItems }: Props) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Mobile top bar */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 md:hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 shadow-sm md:hidden">
           <button
             onClick={() => setOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
             aria-label="Open navigation"
           >
             <HamburgerIcon className="h-5 w-5" />
@@ -157,12 +196,15 @@ export default function SidebarShell({ navItems }: Props) {
           <div className="flex items-center gap-2">
             <LogoMark />
             <span style={{ fontSize: '16px', color: '#5FB0E3' }}>
-              <span style={{ fontWeight: 400 }}>Proxa</span>
-              <span style={{ fontWeight: 600 }}>Screen</span>
+              <span style={{ fontWeight: 300 }}>Proxa</span>
+              <span style={{ fontWeight: 700 }}>Screen</span>
             </span>
           </div>
 
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
+          >
             {initials}
           </div>
         </header>
@@ -201,6 +243,15 @@ function HamburgerIcon({ className }: { className?: string }) {
     <svg className={className} xmlns="http://www.w3.org/2000/svg"
       fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg"
+      fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
     </svg>
   )
 }

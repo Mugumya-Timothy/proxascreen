@@ -370,14 +370,180 @@ export function generateAssessmentPDF(
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
   doc.text('ASSESSMENT SUMMARY', margin, y)
-  y += 4
+  y += 5
 
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(55, 65, 81)
-  const summaryLines = doc.splitTextToSize(assessment.risk_explanation, pageW - margin * 2) as string[]
-  doc.text(summaryLines, margin, y)
-  y += summaryLines.length * 4.5 + 8
+  const hasStructured = assessment.summary_text && assessment.summary_text.length > 0
+
+  if (!hasStructured) {
+    // Fallback for old records without structured fields
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(55, 65, 81)
+    const summaryLines = doc.splitTextToSize(assessment.risk_explanation, pageW - margin * 2) as string[]
+    doc.text(summaryLines, margin, y)
+    y += summaryLines.length * 4.5 + 8
+  } else {
+    // Risk statement
+    const riskColor = RISK_TEXT_RGB[assessment.risk_level] ?? RISK_TEXT_RGB.High
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...riskColor)
+    const riskStmt = `This patient was assessed as ${assessment.risk_level.toUpperCase()} RISK of prostate cancer.`
+    const riskStmtLines = doc.splitTextToSize(riskStmt, pageW - margin * 2) as string[]
+    doc.text(riskStmtLines, margin, y)
+    y += riskStmtLines.length * 5.5 + 4
+
+    // Active risk factors
+    if (assessment.active_risk_factors?.length) {
+      y = maybeNewPage(doc, y, 10 + assessment.active_risk_factors.length * 5, pageH, margin)
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(107, 114, 128)
+      doc.text(`Active risk factors (${assessment.active_risk_factors.length} of 4):`, margin, y)
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(153, 27, 27)
+      assessment.active_risk_factors.forEach((f, i) => {
+        const lines = doc.splitTextToSize(`(${i + 1}) ${f};`, pageW - margin * 2 - 4) as string[]
+        doc.text(lines, margin + 3, y)
+        y += lines.length * 4.5
+      })
+      y += 3
+    }
+
+    // Protective factors
+    if (assessment.protective_factors?.length) {
+      y = maybeNewPage(doc, y, 10 + assessment.protective_factors.length * 5, pageH, margin)
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(107, 114, 128)
+      doc.text('Protective factors:', margin, y)
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(22, 101, 52)
+      assessment.protective_factors.forEach((f, i) => {
+        const lines = doc.splitTextToSize(`(${i + 1}) ${f}.`, pageW - margin * 2 - 4) as string[]
+        doc.text(lines, margin + 3, y)
+        y += lines.length * 4.5
+      })
+      y += 3
+    }
+
+    // Closing paragraph
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(55, 65, 81)
+    const closingLines = doc.splitTextToSize(assessment.summary_text, pageW - margin * 2) as string[]
+    doc.text(closingLines, margin, y)
+    y += closingLines.length * 4.5 + 10
+  }
+
+  // ── Primary Risk Factors Assessed ─────────────────────────────────────────
+
+  const primaryFactors = [
+    {
+      label:       'Smoking status',
+      active:      assessment.smoker,
+      activeText:  'ACTIVE — patient is a smoker',
+      safeText:    'Not active (non-smoker)',
+    },
+    {
+      label:       'Family history of prostate cancer',
+      active:      assessment.family_history,
+      activeText:  'ACTIVE — family history present',
+      safeText:    'Not active (no family history)',
+    },
+    {
+      label:       'Regular health checkup attendance',
+      active:      !assessment.regular_health_checkup,
+      activeText:  'ACTIVE — no regular checkups',
+      safeText:    'Not active (attends checkups)',
+    },
+    {
+      label:       'Prior prostate examination',
+      active:      !assessment.prostate_exam_done,
+      activeText:  'ACTIVE — no prior examination on record',
+      safeText:    'Not active (prior examination on record)',
+    },
+  ]
+
+  const pfActiveCount = primaryFactors.filter(f => f.active).length
+
+  y = maybeNewPage(doc, y, 55, pageH, margin)
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(156, 163, 175)
+  doc.text(`PRIMARY RISK FACTORS ASSESSED (${pfActiveCount} OF 4 ACTIVE)`, margin, y)
+  y += 2
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin, right: margin },
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 } },
+    columnStyles: {
+      0: { cellWidth: 95, textColor: [55, 65, 81] as [number, number, number] },
+      1: { fontStyle: 'bold' },
+    },
+    body: primaryFactors.map(f => [
+      f.label,
+      {
+        content: f.active ? f.activeText : f.safeText,
+        styles: {
+          textColor: (f.active ? [153, 27, 27] : [22, 101, 52]) as [number, number, number],
+        },
+      },
+    ]),
+  })
+
+  y = (doc as any).lastAutoTable.finalY + 10
+
+  // ── Lifestyle & Demographic Factors ───────────────────────────────────────
+
+  if (assessment.lifestyle_factor_notes?.length) {
+    y = maybeNewPage(doc, y, 30, pageH, margin)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('LIFESTYLE & DEMOGRAPHIC FACTORS', margin, y)
+    y += 4
+
+    for (const note of assessment.lifestyle_factor_notes) {
+      const noteLines  = doc.splitTextToSize(note.clinical_note, pageW - margin * 2 - 8) as string[]
+      const boxH       = noteLines.length * 4.2 + 12
+      y = maybeNewPage(doc, y, boxH + 4, pageH, margin)
+
+      const increased                          = note.direction === 'Increased risk'
+      const bgRgb: [number, number, number]     = increased ? [255, 247, 247] : [247, 254, 250]
+      const borderRgb: [number, number, number] = increased ? [254, 202, 202] : [187, 247, 208]
+      const labelRgb: [number, number, number]  = increased ? [153, 27,  27]  : [22,  101, 52]
+
+      doc.setFillColor(...bgRgb)
+      doc.setDrawColor(...borderRgb)
+      doc.setLineWidth(0.3)
+      doc.roundedRect(margin, y, pageW - margin * 2, boxH, 2, 2, 'FD')
+
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...labelRgb)
+      doc.text(note.label, margin + 4, y + 5.5)
+
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...labelRgb)
+      doc.text(note.direction, pageW - margin - 4, y + 5.5, { align: 'right' })
+
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(75, 85, 99)
+      doc.text(noteLines, margin + 4, y + 10.5)
+
+      y += boxH + 3
+    }
+    y += 4
+  }
 
   // ── Key Contributing Factors ──────────────────────────────────────────────
 
@@ -388,26 +554,48 @@ export function generateAssessmentPDF(
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(156, 163, 175)
     doc.text('KEY CONTRIBUTING FACTORS', margin, y)
-    y += 2
+    y += 5
 
-    autoTable(doc, {
-      startY: y,
-      margin: { left: margin, right: margin },
-      theme: 'plain',
-      styles: { fontSize: 9.5, cellPadding: { top: 2, bottom: 2, left: 0, right: 4 } },
-      columnStyles: {
-        0: { cellWidth: 10, textColor: [107, 114, 128] as [number, number, number] },
-        1: { fontStyle: 'bold', textColor: [17, 24, 39] as [number, number, number], cellWidth: 100 },
-        2: { textColor: [107, 114, 128] as [number, number, number] },
-      },
-      body: assessment.top_contributing_factors.map((f, i) => [
-        `${i + 1}.`,
-        f.factor,
-        `${f.strength} — ${f.direction}`,
-      ]),
-    })
+    for (let i = 0; i < assessment.top_contributing_factors.length; i++) {
+      const factor    = assessment.top_contributing_factors[i]
+      const increased = factor.direction === 'Increased risk'
 
-    y = (doc as any).lastAutoTable.finalY + 10
+      const bgRgb: [number, number, number]     = increased ? [255, 247, 247] : [247, 254, 250]
+      const borderRgb: [number, number, number] = increased ? [254, 202, 202] : [187, 247, 208]
+      const accentRgb: [number, number, number] = increased ? [153, 27,  27]  : [22,  101, 52]
+
+      const noteLines = factor.clinical_note
+        ? doc.splitTextToSize(factor.clinical_note, pageW - margin * 2 - 8) as string[]
+        : []
+      const boxH = noteLines.length > 0 ? noteLines.length * 4.2 + 15 : 12
+
+      y = maybeNewPage(doc, y, boxH + 4, pageH, margin)
+
+      doc.setFillColor(...bgRgb)
+      doc.setDrawColor(...borderRgb)
+      doc.setLineWidth(0.3)
+      doc.roundedRect(margin, y, pageW - margin * 2, boxH, 2, 2, 'FD')
+
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(17, 24, 39)
+      doc.text(`${i + 1}. ${factor.factor}`, margin + 4, y + 5.5)
+
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...accentRgb)
+      doc.text(`${factor.strength} — ${factor.direction}`, pageW - margin - 4, y + 5.5, { align: 'right' })
+
+      if (noteLines.length > 0) {
+        doc.setFontSize(8.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(75, 85, 99)
+        doc.text(noteLines, margin + 4, y + 11.5)
+      }
+
+      y += boxH + 3
+    }
+    y += 4
   }
 
   // ── Feature Importance Chart ──────────────────────────────────────────────

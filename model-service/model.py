@@ -72,6 +72,181 @@ def get_patient_factor_direction(feature_name: str,
     return "Increased risk" if increases_risk else "Decreased risk"
 
 
+def get_clinical_note(feature: str, patient_inputs_raw: dict) -> str:
+    """Returns a clinical note string for a given feature based on patient values."""
+    pal     = str(patient_inputs_raw.get("physical_activity_level", "")).lower()
+    diet    = str(patient_inputs_raw.get("diet_type", "")).lower()
+    alcohol = str(patient_inputs_raw.get("alcohol_consumption", "")).lower()
+    bmi     = float(patient_inputs_raw.get("bmi", 0))
+    bmi_cat = str(patient_inputs_raw.get("bmi_category", ""))
+    age     = float(patient_inputs_raw.get("age", 0))
+    age_grp = str(patient_inputs_raw.get("age_group", ""))
+    rfc     = int(patient_inputs_raw.get("risk_factor_count", 0))
+    smoker  = str(patient_inputs_raw.get("smoker", ""))
+    fh      = str(patient_inputs_raw.get("family_history", ""))
+    rhc     = str(patient_inputs_raw.get("regular_health_checkup", ""))
+    ped     = str(patient_inputs_raw.get("prostate_exam_done", ""))
+
+    if feature == "physical_activity_level":
+        if pal in ("low", "moderate"):
+            return (
+                f"Physical activity level '{pal.capitalize()}' — low physical activity "
+                f"is linked to higher cancer risk. Regular exercise helps regulate "
+                f"hormones including testosterone and insulin, reducing prostate cancer risk."
+            )
+        return (
+            f"Physical activity level '{pal.capitalize()}' — high physical activity "
+            f"is protective against cancer. Exercise helps regulate hormones including "
+            f"testosterone and insulin, reducing prostate cancer risk."
+        )
+
+    if feature == "diet_type":
+        if diet in ("fatty", "mixed"):
+            return (
+                f"Diet type '{diet.capitalize()}' — a fatty or unhealthy diet is associated "
+                f"with higher prostate cancer risk. High fat intake, particularly saturated "
+                f"fat, may stimulate prostate cancer cell growth."
+            )
+        return (
+            f"Diet type '{diet.capitalize()}' — a healthy diet is associated with reduced "
+            f"prostate cancer risk. A diet rich in fruits and vegetables and low in "
+            f"saturated fat is protective against prostate cancer."
+        )
+
+    if feature == "alcohol_consumption":
+        if alcohol == "no":
+            return (
+                "Alcohol consumption 'None' — not drinking alcohol is a protective factor. "
+                "Heavy alcohol use has been linked to increased risk of various cancers, "
+                "including prostate cancer."
+            )
+        if alcohol == "moderate":
+            return (
+                "Alcohol consumption 'Moderate' — moderate alcohol use carries some elevated "
+                "risk. Heavy alcohol use has been linked to increased risk of various cancers, "
+                "including prostate cancer."
+            )
+        return (
+            "Alcohol consumption 'High' — high alcohol consumption is associated with "
+            "elevated cancer risk. Heavy alcohol use has been linked to increased risk "
+            "of various cancers, including prostate cancer."
+        )
+
+    if feature == "bmi":
+        if bmi >= 25.0:
+            return (
+                f"Body Mass Index {bmi:.1f} ({bmi_cat}) — an elevated BMI indicates "
+                f"overweight or obesity, which is linked to higher prostate cancer risk. "
+                f"Excess adipose tissue can alter hormonal balance, particularly "
+                f"estrogen and testosterone levels."
+            )
+        return (
+            f"Body Mass Index {bmi:.1f} ({bmi_cat}) — a normal BMI is a protective "
+            f"factor. Maintaining a healthy weight helps regulate hormonal balance, "
+            f"reducing prostate cancer risk."
+        )
+
+    if feature == "bmi_category":
+        if bmi_cat in ("Overweight", "Obese"):
+            return (
+                f"BMI classification '{bmi_cat}' — overweight or obese BMI is associated "
+                f"with higher prostate cancer risk. Excess adipose tissue can alter "
+                f"hormonal balance, particularly estrogen and testosterone levels."
+            )
+        return (
+            f"BMI classification '{bmi_cat}' — a normal or underweight BMI is a "
+            f"protective factor. Maintaining a healthy weight helps regulate hormonal "
+            f"balance, reducing prostate cancer risk."
+        )
+
+    if feature == "age":
+        if age >= 50:
+            return (
+                f"Age {int(age)} years ({age_grp}) — advanced age is one of the strongest "
+                f"risk factors for prostate cancer. Men aged 50 and above face significantly "
+                f"higher risk, with risk increasing further with each decade."
+            )
+        return (
+            f"Age {int(age)} years ({age_grp}) — younger age is associated with lower "
+            f"prostate cancer risk. However, regular monitoring is still recommended "
+            f"as risk increases with age."
+        )
+
+    if feature == "age_group":
+        if age_grp in ("50 to 59", "60 to 69", "70 and above"):
+            return (
+                f"Age group '{age_grp}' — this age group carries elevated prostate cancer "
+                f"risk. Men aged 50 and above face significantly higher risk, with risk "
+                f"increasing further with each decade."
+            )
+        return (
+            f"Age group '{age_grp}' — this age group is at lower baseline risk. Regular "
+            f"monitoring is still recommended as risk increases with age."
+        )
+
+    if feature == "risk_factor_count":
+        if rfc >= 2:
+            return (
+                f"Primary risk factor count: {rfc} of 4 active. A higher count of active "
+                f"primary risk factors significantly increases the overall probability of "
+                f"prostate cancer."
+            )
+        return (
+            f"Primary risk factor count: {rfc} of 4 active. A low count of active risk "
+            f"factors is a protective indicator that reduces the overall probability of "
+            f"prostate cancer."
+        )
+
+    if feature == "smoker":
+        if smoker == "Yes":
+            return (
+                "Smoking status — patient is a smoker. Smoking is a known risk factor for "
+                "several cancers. Tobacco use introduces carcinogens that can damage DNA "
+                "and promote cancer cell growth."
+            )
+        return (
+            "Smoking status — patient is a non-smoker. Not smoking is a protective factor "
+            "that reduces exposure to tobacco carcinogens."
+        )
+
+    if feature == "family_history":
+        if fh == "Yes":
+            return (
+                "Family history of prostate cancer — present. A family history of prostate "
+                "cancer significantly increases risk due to shared genetic predisposition "
+                "and hereditary factors."
+            )
+        return (
+            "Family history of prostate cancer — absent. No family history of prostate "
+            "cancer is a protective indicator, reducing hereditary risk."
+        )
+
+    if feature == "regular_health_checkup":
+        if rhc == "No":
+            return (
+                "Regular health checkup attendance — not attending. Regular health checkups "
+                "enable early detection and timely intervention, which is critical for "
+                "improving cancer outcomes."
+            )
+        return (
+            "Regular health checkup attendance — attending. Regular health checkups enable "
+            "early detection and timely intervention, reducing the risk of late-stage diagnosis."
+        )
+
+    if feature == "prostate_exam_done":
+        if ped == "No":
+            return (
+                "Prior prostate examination — none on record. A previous prostate examination "
+                "provides baseline data and is important for early detection of prostate cancer."
+            )
+        return (
+            "Prior prostate examination — on record. A previous prostate examination provides "
+            "useful baseline data for ongoing monitoring."
+        )
+
+    return ""
+
+
 def generate_clinical_explanation(
     patient_inputs_raw: dict,
     patient_encoded_values,
@@ -139,10 +314,11 @@ def generate_clinical_explanation(
             "Mild"
         )
         top_factors.append({
-            "factor":     feature_display.get(feat, feat),
-            "direction":  direction,
-            "strength":   strength,
-            "importance": round(float(importance), 4),
+            "factor":       feature_display.get(feat, feat),
+            "direction":    direction,
+            "strength":     strength,
+            "importance":   round(float(importance), 4),
+            "clinical_note": get_clinical_note(feat, patient_inputs_raw),
         })
 
     top_factors = top_factors[:3]
@@ -210,16 +386,110 @@ def generate_clinical_explanation(
         ),
     }
 
+    # ── Structured summary fields ─────────────────────────────────────────────
+    smoker_val = patient_inputs_raw.get("smoker", "No")
+    fh_val     = patient_inputs_raw.get("family_history", "No")
+    rhc_val    = patient_inputs_raw.get("regular_health_checkup", "No")
+    ped_val    = patient_inputs_raw.get("prostate_exam_done", "No")
+
+    active_risk_factors: list[str] = []
+    protective_factors:  list[str] = []
+
+    if smoker_val == "Yes":
+        active_risk_factors.append("Smoking (patient is a smoker)")
+    else:
+        protective_factors.append("Non-smoker")
+
+    if fh_val == "Yes":
+        active_risk_factors.append("Family history of prostate cancer")
+    else:
+        protective_factors.append("No family history of prostate cancer")
+
+    if rhc_val == "No":
+        active_risk_factors.append("No regular health checkup attendance")
+    else:
+        protective_factors.append("Attends regular health checkups")
+
+    if ped_val == "No":
+        active_risk_factors.append("No prior prostate examination on record")
+    else:
+        protective_factors.append("Prior prostate examination on record")
+
+    _summary_texts = {
+        "High":   (
+            "The combination of these active risk factors alongside the patient's "
+            "demographic and lifestyle profile produced a pattern consistent with "
+            "high risk of prostate cancer. Immediate clinical action and referral "
+            "are required."
+        ),
+        "Medium": (
+            "The overall combination of clinical characteristics and lifestyle "
+            "profile suggests a moderate probability of prostate cancer at this time. "
+            "Follow-up consultation and monitoring are advised."
+        ),
+        "Low":    (
+            "The overall combination of the patient's clinical characteristics and "
+            "lifestyle profile suggests a low probability of prostate cancer at this "
+            "time. Routine monitoring is recommended."
+        ),
+    }
+    summary_text = _summary_texts[predicted_label]
+
+    pal_val     = str(patient_inputs_raw.get("physical_activity_level", "")).lower()
+    diet_val    = str(patient_inputs_raw.get("diet_type", "")).lower()
+    alcohol_val = str(patient_inputs_raw.get("alcohol_consumption", "")).lower()
+    age_val     = float(patient_inputs_raw.get("age", 0))
+    bmi_val     = float(patient_inputs_raw.get("bmi", 0))
+    bmi_cat_val = str(patient_inputs_raw.get("bmi_category", ""))
+    age_grp_val = str(patient_inputs_raw.get("age_group", ""))
+
+    lifestyle_factor_notes = [
+        {
+            "feature":       "age",
+            "label":         f"Age ({int(age_val)} years — {age_grp_val})",
+            "direction":     "Increased risk" if age_val >= 50 else "Decreased risk",
+            "clinical_note": get_clinical_note("age", patient_inputs_raw),
+        },
+        {
+            "feature":       "bmi",
+            "label":         f"Body Mass Index ({bmi_val:.1f} — {bmi_cat_val})",
+            "direction":     "Increased risk" if bmi_val >= 25.0 else "Decreased risk",
+            "clinical_note": get_clinical_note("bmi", patient_inputs_raw),
+        },
+        {
+            "feature":       "physical_activity_level",
+            "label":         f"Physical Activity Level ({pal_val.capitalize()})",
+            "direction":     "Increased risk" if pal_val in ("low", "moderate") else "Decreased risk",
+            "clinical_note": get_clinical_note("physical_activity_level", patient_inputs_raw),
+        },
+        {
+            "feature":       "diet_type",
+            "label":         f"Diet Type ({diet_val.capitalize()})",
+            "direction":     "Increased risk" if diet_val in ("fatty", "mixed") else "Decreased risk",
+            "clinical_note": get_clinical_note("diet_type", patient_inputs_raw),
+        },
+        {
+            "feature":       "alcohol_consumption",
+            "label":         f"Alcohol Consumption ({alcohol_val.capitalize()})",
+            "direction":     "Increased risk" if alcohol_val in ("moderate", "high") else "Decreased risk",
+            "clinical_note": get_clinical_note("alcohol_consumption", patient_inputs_raw),
+        },
+    ]
+
     return {
-        "predicted_risk_level": predicted_label,
+        "predicted_risk_level":     predicted_label,
         "confidence": {
             "Low":    f"{probabilities[0]:.1%}",
             "Medium": f"{probabilities[1]:.1%}",
             "High":   f"{probabilities[2]:.1%}",
         },
         "model_confidence":          f"{max(probabilities):.1%}",
-        "risk_explanation":          why,
+        "risk_explanation":          summary_text,
+        "active_risk_factors":       active_risk_factors,
+        "protective_factors":        protective_factors,
+        "summary_text":              summary_text,
         "top_contributing_factors":  top_factors,
+        "lifestyle_factor_notes":    lifestyle_factor_notes,
         "clinical_recommendation":   recommendations[predicted_label],
         "risk_factor_count":         risk_factor_count,
     }
@@ -401,7 +671,11 @@ def predict(
         "high_percentage":          round(probs[2] * 100, 2),
         "model_confidence":         confidence_float,
         "risk_explanation":         result["risk_explanation"],
+        "active_risk_factors":      result["active_risk_factors"],
+        "protective_factors":       result["protective_factors"],
+        "summary_text":             result["summary_text"],
         "top_contributing_factors": result["top_contributing_factors"],
+        "lifestyle_factor_notes":   result["lifestyle_factor_notes"],
         "clinical_recommendation":  result["clinical_recommendation"],
         "feature_importances":      FEATURE_IMPORTANCES,
     }

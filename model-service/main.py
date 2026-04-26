@@ -77,10 +77,18 @@ class PredictRequest(BaseModel):
 
 
 class ContributingFactor(BaseModel):
-    factor:     str
-    direction:  str
-    strength:   str
-    importance: float
+    factor:       str
+    direction:    str
+    strength:     str
+    importance:   float
+    clinical_note: str
+
+
+class LifestyleFactorNote(BaseModel):
+    feature:       str
+    label:         str
+    direction:     str
+    clinical_note: str
 
 
 class PredictResponse(BaseModel):
@@ -89,8 +97,12 @@ class PredictResponse(BaseModel):
     medium_percentage:        float                  = Field(..., description="Probability of Medium risk (0–100)")
     high_percentage:          float                  = Field(..., description="Probability of High risk (0–100)")
     model_confidence:         float                  = Field(..., description="Model confidence percentage (0–100)")
-    risk_explanation:         str                    = Field(..., description="Plain-language assessment summary")
+    risk_explanation:         str                    = Field(..., description="Closing summary paragraph (backwards compat)")
+    active_risk_factors:      list[str]              = Field(..., description="Active primary risk factors")
+    protective_factors:       list[str]              = Field(..., description="Inactive/protective primary risk factors")
+    summary_text:             str                    = Field(..., description="Closing summary paragraph")
     top_contributing_factors: list[ContributingFactor]
+    lifestyle_factor_notes:   list[LifestyleFactorNote] = Field(..., description="Clinical notes for all lifestyle factors")
     clinical_recommendation:  str                    = Field(..., description="Clinical next-action recommendation")
     feature_importances:      dict[str, float]       = Field(..., description="Feature importance scores for chart")
 

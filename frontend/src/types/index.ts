@@ -35,10 +35,18 @@ export type AlcoholConsumption    = 'no'    | 'moderate' | 'high'
 export type RiskLevel             = 'Low'   | 'Medium'   | 'High'
 
 export interface ContributingFactor {
-  factor:     string
-  direction:  'Increased risk' | 'Decreased risk'
-  strength:   'Strong' | 'Moderate' | 'Mild'
-  importance: number
+  factor:        string
+  direction:     'Increased risk' | 'Decreased risk'
+  strength:      'Strong' | 'Moderate' | 'Mild'
+  importance:    number
+  clinical_note?: string
+}
+
+export interface LifestyleFactorNote {
+  feature:       string
+  label:         string
+  direction:     'Increased risk' | 'Decreased risk'
+  clinical_note: string
 }
 
 export interface Assessment {
@@ -54,15 +62,19 @@ export interface Assessment {
   family_history:          boolean
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
-  risk_level:              RiskLevel
-  low_percentage:          number
-  medium_percentage:       number
-  high_percentage:         number
-  model_confidence:        number
-  risk_explanation:        string
+  risk_level:               RiskLevel
+  low_percentage:           number
+  medium_percentage:        number
+  high_percentage:          number
+  model_confidence:         number
+  risk_explanation:         string
+  active_risk_factors:      string[]
+  protective_factors:       string[]
+  summary_text:             string
   top_contributing_factors: ContributingFactor[]
-  clinical_recommendation: string
-  feature_importances:     Record<string, number>
+  lifestyle_factor_notes:   LifestyleFactorNote[]
+  clinical_recommendation:  string
+  feature_importances:      Record<string, number>
   created_at:              string
   updated_at:              string
 }

@@ -14,37 +14,64 @@ export default function DashboardPage() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const [showAddPatient, setShowAddPatient] = useState(false)
-  const [showAddClinician, setShowAddClinician] = useState(false)
+  const [showAddPatient,    setShowAddPatient]    = useState(false)
+  const [showAddClinician,  setShowAddClinician]  = useState(false)
 
   const { data: stats, isLoading, isError } = useAdminStats()
 
-  const total      = stats?.total_assessments ?? 0
-  const highRisk   = stats?.total_high_risk   ?? 0
-  const highPct    = total > 0 ? Math.round((highRisk / total) * 100) : 0
-  const safePct    = total > 0 ? 100 - highPct : 0
+  const total    = stats?.total_assessments ?? 0
+  const highRisk = stats?.total_high_risk   ?? 0
+  const highPct  = total > 0 ? Math.round((highRisk / total) * 100) : 0
+  const safePct  = total > 0 ? 100 - highPct : 0
 
   return (
     <div className="space-y-6">
 
-      {/* ── Page header ───────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {firstName}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            View an overview of essential metrics and system-wide updates.
-          </p>
-          <p className="mt-1 text-xs text-gray-400">{today}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          <button onClick={() => setShowAddClinician(true)} className="btn-primary text-xs px-3 py-1.5">
-            + Add Clinician
-          </button>
-          <button onClick={() => setShowAddPatient(true)} className="btn-outline text-xs px-3 py-1.5">
-            + Add Patient
-          </button>
+      {/* ── Hero welcome banner ───────────────────────────────────────────── */}
+      <div
+        className="relative overflow-hidden rounded-2xl px-6 py-6 sm:px-8 sm:py-7"
+        style={{ background: 'linear-gradient(135deg, #0d2e45 0%, #1a4f6d 55%, #1e6a96 100%)' }}
+      >
+        {/* Decorative blobs */}
+        <span
+          className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full opacity-[0.08]"
+          style={{ background: '#5FB0E3' }}
+        />
+        <span
+          className="pointer-events-none absolute -bottom-4 right-16 h-28 w-28 rounded-full opacity-[0.06]"
+          style={{ background: '#58C697' }}
+        />
+
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+              <CalendarIcon className="h-3 w-3" />
+              {today}
+            </p>
+            <h1 className="text-2xl font-bold text-white">
+              Welcome back, {firstName}
+            </h1>
+            <p className="mt-1 text-sm text-white/55">
+              View an overview of essential metrics and system-wide updates.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+            <button
+              onClick={() => setShowAddClinician(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Add Clinician
+            </button>
+            <button
+              onClick={() => setShowAddPatient(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/8 px-4 py-2 text-sm font-semibold text-white/75 backdrop-blur-sm transition-colors hover:bg-white/15 hover:text-white"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Add Patient
+            </button>
+          </div>
         </div>
       </div>
 
@@ -96,91 +123,66 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 
         {/* Risk Screening Overview — 2/3 */}
-        <div className="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 border border-gray-100">
-          <div className="mb-5 flex items-start justify-between">
+        <div className="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-start justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Risk Screening Overview</h2>
+              <h2 className="text-sm font-bold text-gray-900">Risk Screening Overview</h2>
               <p className="mt-0.5 text-xs text-gray-400">Platform-wide assessment risk distribution</p>
             </div>
             <Link
               to="/admin/patients"
-              className="text-xs font-medium text-primary hover:text-primary-600 transition-colors"
+              className="text-xs font-semibold text-primary hover:text-primary-600 transition-colors"
             >
               View all →
             </Link>
           </div>
 
           {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 animate-pulse rounded-xl bg-gray-100" />
+            <div className="space-y-5">
+              {[1, 2].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-4 w-32 animate-pulse rounded-md bg-gray-100" />
+                  <div className="h-3 w-full animate-pulse rounded-full bg-gray-100" />
+                </div>
               ))}
             </div>
           ) : (
             <>
-              {/* Risk bars */}
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {/* High risk */}
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
-                      <span className="text-sm font-medium text-gray-700">High Risk</span>
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">
-                      {highRisk.toLocaleString()}
-                      <span className="ml-1 text-xs font-normal text-gray-400">
-                        ({highPct}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-2 rounded-full bg-red-400 transition-all duration-700"
-                      style={{ width: `${highPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Lower risk (remaining) */}
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-secondary shrink-0" />
-                      <span className="text-sm font-medium text-gray-700">Lower Risk</span>
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">
-                      {(total - highRisk).toLocaleString()}
-                      <span className="ml-1 text-xs font-normal text-gray-400">
-                        ({safePct}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-2 rounded-full bg-secondary transition-all duration-700"
-                      style={{ width: `${safePct}%` }}
-                    />
-                  </div>
-                </div>
+                <RiskBar
+                  label="High Risk"
+                  count={highRisk}
+                  pct={highPct}
+                  dotColor="bg-red-500"
+                  barColor="bg-red-400"
+                />
+                {/* Lower risk */}
+                <RiskBar
+                  label="Lower Risk"
+                  count={total - highRisk}
+                  pct={safePct}
+                  dotColor="bg-secondary"
+                  barColor="bg-secondary"
+                />
               </div>
 
               {/* Summary row */}
-              <div className="mt-6 grid grid-cols-3 divide-x divide-gray-100 rounded-xl bg-gray-50 py-4">
-                <div className="px-4 text-center">
-                  <p className="text-xl font-bold text-gray-900">
+              <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-gray-100">
+                <div className="bg-white px-4 py-4 text-center">
+                  <p className="text-2xl font-bold text-gray-900">
                     {(stats?.total_patients ?? 0).toLocaleString()}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-400">Patients</p>
                 </div>
-                <div className="px-4 text-center">
-                  <p className="text-xl font-bold text-primary">
+                <div className="bg-white px-4 py-4 text-center">
+                  <p className="text-2xl font-bold text-primary">
                     {total.toLocaleString()}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-400">Assessments</p>
                 </div>
-                <div className="px-4 text-center">
-                  <p className="text-xl font-bold text-red-500">
+                <div className="bg-white px-4 py-4 text-center">
+                  <p className="text-2xl font-bold text-red-500">
                     {highRisk.toLocaleString()}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-400">High Risk</p>
@@ -191,15 +193,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions — 1/3 */}
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 border border-gray-100">
-          <h2 className="mb-5 text-sm font-semibold text-gray-900">Quick Actions</h2>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-sm font-bold text-gray-900">Quick Actions</h2>
           <div className="space-y-2.5">
             <QuickAction
               onClick={() => setShowAddClinician(true)}
               icon={<CliniciansIcon className="h-4 w-4" />}
               iconBg="bg-secondary/10"
               iconColor="text-secondary"
-              cardBg="bg-secondary/5 hover:bg-secondary/10 border-secondary/20"
+              cardBg="hover:bg-secondary/5 border-gray-100 hover:border-secondary/20"
               title="Add Clinician"
               desc="Register new medical staff"
             />
@@ -208,7 +210,7 @@ export default function DashboardPage() {
               icon={<PatientsIcon className="h-4 w-4" />}
               iconBg="bg-primary/10"
               iconColor="text-primary"
-              cardBg="bg-primary/5 hover:bg-primary/10 border-primary/20"
+              cardBg="hover:bg-primary/5 border-gray-100 hover:border-primary/20"
               title="Add Patient"
               desc="Register a new patient"
             />
@@ -217,7 +219,7 @@ export default function DashboardPage() {
               icon={<AssessmentsIcon className="h-4 w-4" />}
               iconBg="bg-gray-100"
               iconColor="text-gray-500"
-              cardBg="bg-gray-50 hover:bg-gray-100 border-gray-200"
+              cardBg="hover:bg-gray-50 border-gray-100"
               title="View Patients"
               desc="Browse all patient records"
             />
@@ -226,7 +228,7 @@ export default function DashboardPage() {
               icon={<CliniciansIcon className="h-4 w-4" />}
               iconBg="bg-gray-100"
               iconColor="text-gray-500"
-              cardBg="bg-gray-50 hover:bg-gray-100 border-gray-200"
+              cardBg="hover:bg-gray-50 border-gray-100"
               title="View Clinicians"
               desc="Manage medical staff"
             />
@@ -240,10 +242,38 @@ export default function DashboardPage() {
       {showAddPatient && (
         <AddPatientModal base="/admin" onClose={() => setShowAddPatient(false)} />
       )}
-
       {showAddClinician && (
         <AddClinicianModal onClose={() => setShowAddClinician(false)} />
       )}
+    </div>
+  )
+}
+
+// ── Risk bar ──────────────────────────────────────────────────────────────────
+
+function RiskBar({
+  label, count, pct, dotColor, barColor,
+}: {
+  label: string; count: number; pct: number; dotColor: string; barColor: string
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor}`} />
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+        </div>
+        <span className="text-sm font-bold text-gray-900">
+          {count.toLocaleString()}
+          <span className="ml-1.5 text-xs font-normal text-gray-400">({pct}%)</span>
+        </span>
+      </div>
+      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+        <div
+          className={`h-3 rounded-full transition-all duration-700 ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   )
 }
@@ -253,49 +283,48 @@ export default function DashboardPage() {
 function QuickAction({
   to, onClick, icon, iconBg, iconColor, cardBg, title, desc,
 }: {
-  to?: string
-  onClick?: () => void
-  icon: React.ReactNode
-  iconBg: string
-  iconColor: string
-  cardBg: string
-  title: string
-  desc: string
+  to?: string; onClick?: () => void; icon: React.ReactNode
+  iconBg: string; iconColor: string; cardBg: string; title: string; desc: string
 }) {
   const inner = (
     <>
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg} ${iconColor}`}>
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconBg} ${iconColor}`}>
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-900 leading-tight">{title}</p>
-        <p className="text-xs text-gray-400 truncate">{desc}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900 leading-tight">{title}</p>
+        <p className="mt-0.5 truncate text-xs text-gray-400">{desc}</p>
       </div>
-      <ChevronRightIcon className="ml-auto h-4 w-4 shrink-0 text-gray-300" />
+      <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />
     </>
   )
+  const cls = `flex w-full items-center gap-3 rounded-xl border p-3 transition-colors ${cardBg}`
   if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`flex w-full items-center gap-3 rounded-xl border p-3 transition-colors ${cardBg}`}
-      >
-        {inner}
-      </button>
-    )
+    return <button type="button" onClick={onClick} className={cls}>{inner}</button>
   }
-  return (
-    <Link
-      to={to!}
-      className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${cardBg}`}
-    >
-      {inner}
-    </Link>
-  )
+  return <Link to={to!} className={cls}>{inner}</Link>
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+    </svg>
+  )
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  )
+}
 
 function AlertIcon({ className }: { className?: string }) {
   return (

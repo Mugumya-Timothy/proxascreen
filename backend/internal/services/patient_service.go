@@ -151,7 +151,9 @@ func (s *PatientService) GetPatient(ctx context.Context, id string) (*Patient, e
 			regular_health_checkup, prostate_exam_done,
 			risk_level, low_percentage, medium_percentage, high_percentage,
 			model_confidence, risk_explanation,
-			top_contributing_factors, clinical_recommendation, feature_importances,
+			active_risk_factors, protective_factors, summary_text,
+			top_contributing_factors, lifestyle_factor_notes,
+			clinical_recommendation, feature_importances,
 			created_at, updated_at
 		FROM assessments WHERE patient_id=$1 ORDER BY created_at DESC
 	`, id)

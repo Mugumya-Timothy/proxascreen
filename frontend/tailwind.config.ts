@@ -33,8 +33,8 @@ export default {
         },
       },
       fontFamily: {
-        // Andika is loaded via Google Fonts in index.html
-        sans: ['Andika', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Merriweather is loaded via Google Fonts in index.html
+        sans: ['Merriweather', 'Georgia', 'ui-serif', 'serif'],
       },
       borderRadius: {
         xl:  '0.875rem',

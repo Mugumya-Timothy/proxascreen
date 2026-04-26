@@ -8,22 +8,25 @@ interface Props {
 }
 
 const ACCENT = {
-  primary:   { bg: 'bg-primary/10',   icon: 'text-primary',   border: 'border-primary/20',   bar: 'bg-primary' },
-  secondary: { bg: 'bg-secondary/10', icon: 'text-secondary', border: 'border-secondary/20', bar: 'bg-secondary' },
-  red:       { bg: 'bg-red-50',       icon: 'text-red-500',   border: 'border-red-100',       bar: 'bg-red-400' },
-  green:     { bg: 'bg-green-50',     icon: 'text-green-600', border: 'border-green-100',     bar: 'bg-green-500' },
+  primary:   { bg: 'bg-primary/10',   icon: 'text-primary',   bar: 'bg-primary' },
+  secondary: { bg: 'bg-secondary/10', icon: 'text-secondary', bar: 'bg-secondary' },
+  red:       { bg: 'bg-red-50',       icon: 'text-red-500',   bar: 'bg-red-400' },
+  green:     { bg: 'bg-green-50',     icon: 'text-green-600', bar: 'bg-green-500' },
 }
 
 export default function StatCard({
   title, value, icon, accent = 'primary', loading = false, subtitle,
 }: Props) {
-  const { bg, icon: iconColor, border } = ACCENT[accent]
+  const { bg, icon: iconColor, bar } = ACCENT[accent]
 
   return (
-    <div className={`group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 border ${border} hover:shadow-md transition-shadow duration-200`}>
+    <div className="group relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+      {/* Colored top accent strip */}
+      <div className={`absolute inset-x-0 top-0 h-[3px] ${bar}`} />
+
       {/* Icon + title row */}
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</p>
+      <div className="flex items-start justify-between pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{title}</p>
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg} ${iconColor}`}>
           {icon}
         </div>
