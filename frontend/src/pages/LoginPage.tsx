@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useSignIn, useAuth } from '@clerk/clerk-react'
+import { friendlyClerkError } from '../utils/errors'
 import api from '../services/api'
 import type { User } from '../types'
 
@@ -72,8 +73,7 @@ export default function LoginPage() {
           ? err.message
           : 'Invalid email or password. Please try again.'
       // Clerk wraps errors as objects with a `.errors` array
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr?.errors?.[0]?.message ?? msg)
+      setError(friendlyClerkError(err, msg))
     } finally {
       setLoading(false)
     }

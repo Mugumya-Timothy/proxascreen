@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSignIn } from '@clerk/clerk-react'
+import { friendlyClerkError } from '../utils/errors'
 import api from '../services/api'
 import type { User } from '../types'
 
@@ -38,8 +39,7 @@ export default function ForgotPasswordPage() {
       })
       setStage('code')
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr?.errors?.[0]?.message ?? 'Could not send reset code. Please try again.')
+      setError(friendlyClerkError(err, 'Could not send reset code. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -94,8 +94,7 @@ export default function ForgotPasswordPage() {
         setError('Verification failed. Please try again.')
       }
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr?.errors?.[0]?.message ?? 'Invalid or expired code. Please try again.')
+      setError(friendlyClerkError(err, 'Invalid or expired code. Please try again.'))
     } finally {
       setLoading(false)
     }

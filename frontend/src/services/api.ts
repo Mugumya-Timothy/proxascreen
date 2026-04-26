@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { friendlyApiError } from '../utils/errors'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -39,10 +40,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error)) {
-      const message =
-        (error.response?.data as { error?: string })?.error ??
-        error.message ??
-        'An unexpected error occurred'
+      const message = friendlyApiError(error.response?.status)
       return Promise.reject(new Error(message))
     }
     return Promise.reject(error)
