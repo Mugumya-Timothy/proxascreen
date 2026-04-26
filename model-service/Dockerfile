@@ -2,13 +2,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies first (layer-cached until requirements.txt changes)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and bundled model artefact
 COPY main.py model.py ./
-COPY models/ ./models/
+
+# Download the model from GitHub Releases at build time
+ARG MODEL_URL=https://github.com/Mugumya-Timothy/proxascreen/releases/download/v1.0.1/prostate_cancer_predictor.pkl
+RUN mkdir -p models && \
+    apt-get update && apt-get install -y --no-install-recommends wget && \
+    wget -O models/prostate_cancer_predictor.pkl "$MODEL_URL" && \
+    apt-get purge -y wget && apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8000
 
