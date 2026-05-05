@@ -264,7 +264,7 @@ export default function AssessmentDetailPage() {
             </div>
           )}
           <div className="h-[130px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={130}>
               <BarChart
                 layout="vertical"
                 data={probData}
@@ -431,7 +431,7 @@ export default function AssessmentDetailPage() {
           ))}
         </div>
         <div style={{ height: fiData.length * 28 + 8 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={fiData.length * 28 + 8}>
             <BarChart
               layout="vertical"
               data={fiData}
@@ -509,7 +509,7 @@ function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
         </span>
         <span className="text-sm font-semibold text-gray-700">Score: {detail.score_display}</span>
       </div>
-      {detail.relatives.length > 0 && (
+      {(detail.relatives?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-2">
           {detail.relatives.map((r) => (
             <span key={r} className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">{r}</span>

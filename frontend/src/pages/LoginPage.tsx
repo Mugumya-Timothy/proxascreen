@@ -85,20 +85,14 @@ export default function LoginPage() {
       {/* ── Left branding panel (desktop only) ───────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-[46%] flex-col items-center justify-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #5FB0E3 0%, #2aa8dd 55%, #3dbf8a 100%)' }}
+        style={{
+          backgroundImage: 'url(https://res.cloudinary.com/df3lhzzy7/image/upload/v1777994561/pexels-tima-miroshnichenko-5452235_gxwqxa.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
       >
-        {/* Subtle dot grid */}
-        <svg aria-hidden className="absolute inset-0 h-full w-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="lgrid" width="28" height="28" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="1" fill="white" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#lgrid)" />
-        </svg>
-        {/* Decorative orbs */}
-        <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-white/10 blur-[60px]" />
-        <div className="absolute -bottom-32 -right-32 h-80 w-80 rounded-full bg-white/10 blur-[60px]" />
+        {/* Dark overlay so text stays readable */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(13,46,69,0.82) 0%, rgba(26,79,109,0.78) 100%)' }} />
 
         <div className="relative z-10 flex flex-col items-center text-center px-14">
           <img src="/logo.png" alt="ProxaScreen logo" width={76} height={76} className="mb-5 drop-shadow-lg" />
@@ -131,7 +125,7 @@ export default function LoginPage() {
           <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-secondary/10 blur-[70px]" />
         </div>
 
-        <div className="relative w-full max-w-[400px] py-8">
+        <div className="relative w-full max-w-[400px] rounded-2xl border border-gray-200/80 bg-white px-7 py-8 shadow-md">
 
           {/* ── Mobile brand mark (hidden on desktop) ──────────────────── */}
           <div className="lg:hidden mb-5 flex flex-col items-center gap-2.5">
@@ -218,7 +212,7 @@ export default function LoginPage() {
               </label>
               <Link
                 to="/forgot-password"
-                className="text-sm font-medium text-gray-700 hover:text-primary transition-colors"
+                className="text-sm font-medium text-[#5FB0E3] hover:text-[#2aa8dd] transition-colors"
               >
                 Forgot password?
               </Link>
@@ -237,11 +231,13 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !isLoaded}
-                className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+                className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#5FB0E3]/40 disabled:opacity-60"
                 style={{
                   background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
-                  boxShadow: '0 4px 14px 0 rgba(87,190,235,0.35)',
+                  boxShadow: '0 4px 16px 0 rgba(95,176,227,0.45)',
                 }}
+                onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, #4da3d8 0%, #1a9fd4 100%)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)' }}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">

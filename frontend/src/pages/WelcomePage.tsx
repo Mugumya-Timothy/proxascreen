@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@clerk/clerk-react'
 import api from '../services/api'
@@ -7,6 +7,65 @@ import type { User } from '../types'
 export default function WelcomePage() {
   const { isSignedIn } = useAuth()
   const navigate       = useNavigate()
+
+  // ── Typing animation for "Predict." ───────────────────────────────
+  // Phases: typing → hold (10s) → fading → wait → typing …
+  const WORD = 'Predict.'
+  const [typed, setTyped]           = useState('')
+  const [showCursor, setShowCursor] = useState(true)
+  const [fading, setFading]         = useState(false)
+  const phase   = useRef<'typing' | 'hold' | 'fading' | 'wait'>('typing')
+  const charIdx = useRef(0)
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>
+
+    const typeDelay = (char: string, idx: number): number => {
+      if (char === '.') return 260
+      if (idx === 0)    return 180
+      const base = 90 + Math.random() * 60
+      return Math.random() < 0.12 ? base + 200 : base
+    }
+
+    const tick = () => {
+      if (phase.current === 'typing') {
+        const idx  = charIdx.current
+        const next = WORD.slice(0, idx + 1)
+        setTyped(next)
+        charIdx.current = idx + 1
+        if (next === WORD) {
+          phase.current = 'hold'
+          timeout = setTimeout(tick, 10_000)   // stay visible for 10 seconds
+        } else {
+          timeout = setTimeout(tick, typeDelay(WORD[idx], idx))
+        }
+      } else if (phase.current === 'hold') {
+        // start CSS fade-out (700 ms transition)
+        setFading(true)
+        phase.current = 'fading'
+        timeout = setTimeout(tick, 750)
+      } else if (phase.current === 'fading') {
+        // fade done — reset
+        setFading(false)
+        setTyped('')
+        charIdx.current = 0
+        phase.current   = 'wait'
+        timeout = setTimeout(tick, 600)        // brief pause before re-typing
+      } else {
+        phase.current = 'typing'
+        timeout = setTimeout(tick, 60)
+      }
+    }
+
+    timeout = setTimeout(tick, 800)
+    return () => clearTimeout(timeout)
+  }, [])
+
+  // blinking cursor
+  useEffect(() => {
+    const id = setInterval(() => setShowCursor(v => !v), 500)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (!isSignedIn) return
@@ -19,71 +78,104 @@ export default function WelcomePage() {
 
   return (
     <div
-      className="relative flex h-screen flex-col items-center justify-center overflow-hidden px-6 text-center"
-      style={{ background: 'linear-gradient(135deg, #f0f9fe 0%, #f8fffe 55%, #f0fdf8 100%)' }}
+      className="relative flex min-h-screen flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(180deg, #0d2e45 0%, #1a4f6d 100%)' }}
     >
-      {/* Background decoration */}
+      {/* ── Background grid pattern ──────────────────────────────────────── */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <svg className="absolute inset-0 h-full w-full opacity-[0.035]" xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="wgrid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="1" fill="#5FB0E3" />
+            <pattern id="wgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#wgrid)" />
         </svg>
-        <div className="absolute -top-64 -right-64 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[100px]" />
-        <div className="absolute -bottom-64 -left-64 h-[600px] w-[600px] rounded-full bg-secondary/10 blur-[100px]" />
+        {/* Subtle radial glow in centre */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full blur-[120px]"
+          style={{ background: 'radial-gradient(circle, rgba(95,176,227,0.18) 0%, transparent 70%)' }}
+        />
       </div>
 
-      {/* ── Centered content ─────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center">
-
-        {/* Logo */}
-        <img
-          src="/logo.png"
-          alt="ProxaScreen logo"
-          width={80}
-          height={80}
-          className="mb-5 drop-shadow-md"
-        />
-
-        {/* Brand name */}
-        <div style={{ fontSize: '52px', lineHeight: 1, letterSpacing: '-0.5px', color: '#5FB0E3' }}>
-          <span style={{ fontWeight: 400 }}>Proxa</span>
-          <span style={{ fontWeight: 700 }}>Screen</span>
+      {/* ── Top Navbar ───────────────────────────────────────────────────── */}
+      <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-5">
+        {/* Logo + Wordmark */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <img src="/logo.png" alt="ProxaScreen" className="h-9 w-9 sm:h-12 sm:w-12 object-contain" />
+          <span className="text-2xl sm:text-3xl tracking-tight text-white">
+            <span className="font-light">Proxa</span>
+            <span className="font-bold">Screen</span>
+          </span>
         </div>
 
-        {/* Sub-brand */}
-        <p
-          className="mt-2 mb-10"
-          style={{
-            fontSize: '10px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.16em',
-            color: '#b0b0b0',
-          }}
-        >
-          Prostate Cancer Risk Screening
-        </p>
-
-        {/* Sign In button */}
+        {/* Login button */}
         <Link
           to="/sign-in"
-          className="group inline-flex items-center gap-3 rounded-2xl px-7 py-3.5 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-primary/40"
-          style={{
-            background: 'linear-gradient(135deg, #5FB0E3 0%, #2aa8dd 100%)',
-            boxShadow: '0 6px 24px 0 rgba(87,190,235,0.40)',
-          }}
+          className="rounded-xl border-2 border-[#5FB0E3] bg-[#5FB0E3]/20 px-5 py-2.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-[#5FB0E3]/40 hover:border-[#5FB0E3] focus:outline-none focus:ring-2 focus:ring-[#5FB0E3]/60 sm:px-7 sm:py-3 sm:text-lg"
         >
-          <LockIcon className="h-4 w-4 text-white/80" />
-          Access Secure Portal
+          Login
         </Link>
-      </div>
+      </header>
 
-      {/* Bottom SSL badge */}
-      <div className="absolute bottom-6 z-10 flex items-center gap-1.5 text-xs text-gray-300">
-        <ShieldIcon className="h-3.5 w-3.5" />
+      {/* ── Centered hero content ─────────────────────────────────────────── */}
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:px-6">
+
+        {/* Badge / pill */}
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur-sm sm:mb-8 sm:px-4">
+          <ShieldIcon className="h-3 w-3 shrink-0 text-[#5FB0E3] sm:h-3.5 sm:w-3.5" />
+          <span className="text-[10px] font-medium text-white/80 tracking-wide sm:text-xs">
+            AI-Powered Prostate Cancer Risk Screening
+          </span>
+        </div>
+
+        {/* Headline */}
+        <h1
+          className="mb-5 font-bold text-white leading-[1.05] tracking-tight sm:mb-6"
+          style={{ fontSize: 'clamp(2.8rem, 10vw, 7rem)' }}
+        >
+          Assess.<br />
+          <span
+            className="inline-block"
+            style={{
+              opacity:    fading ? 0 : 1,
+              transition: fading ? 'opacity 0.7s ease-out' : 'none',
+            }}
+          >
+            {typed}<span style={{ opacity: showCursor ? 1 : 0 }} className="text-[#5FB0E3]">|</span>
+          </span><br />
+          Protect.
+        </h1>
+
+        {/* Subtitle */}
+        <p
+          className="mb-8 max-w-sm px-2 text-white/60 leading-relaxed sm:mb-10 sm:max-w-md sm:px-0"
+          style={{ fontSize: 'clamp(0.88rem, 2vw, 1.1rem)' }}
+        >
+          Real-time prostate cancer risk prediction and clinical decision
+          support for healthcare professionals.
+        </p>
+
+        {/* CTA button */}
+        <Link
+          to="/sign-in"
+          className="group inline-flex items-center gap-2.5 rounded-xl px-7 py-3.5 text-sm font-semibold text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#5FB0E3]/50 sm:px-9 sm:py-4 sm:text-base"
+          style={{
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(95,176,227,0.25)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+        >
+          Get Access
+          <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </main>
+
+      {/* ── Bottom SSL badge ─────────────────────────────────────────────── */}
+      <div className="relative z-10 flex items-center justify-center gap-1.5 pb-5 text-[10px] text-white/30 sm:pb-6 sm:text-xs">
+        <LockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
         <span>256-bit SSL encrypted · © {new Date().getFullYear()} ProxaScreen</span>
       </div>
     </div>

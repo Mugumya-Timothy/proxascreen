@@ -119,6 +119,9 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* ── Service Health (admin only) ────────────────────────────────────── */}
+      <ServiceStatusPanel />
+
       {/* ── Secondary panels ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 
@@ -235,9 +238,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* ── Service Health (admin only) ────────────────────────────────────── */}
-      <ServiceStatusPanel />
 
       {showAddPatient && (
         <AddPatientModal base="/admin" onClose={() => setShowAddPatient(false)} />

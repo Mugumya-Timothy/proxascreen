@@ -119,6 +119,74 @@ function drawBarChart(
 }
 
 /**
+ * Renders presenting symptoms as a two-column visual pill grid.
+ * Urgent symptoms are highlighted in red, standard ones in blue.
+ * Returns the y position after the last row.
+ */
+function drawSymptomsGrid(
+  doc: jsPDF,
+  startY: number,
+  margin: number,
+  pageW: number,
+  pageH: number,
+  symptoms: { key: string; display: string; urgent: boolean }[],
+): number {
+  const cols      = 2
+  const cellW     = (pageW - margin * 2 - 4) / cols
+  const pillH     = 7.5
+  const gapY      = 2.5
+  let y           = startY
+
+  for (let i = 0; i < symptoms.length; i += cols) {
+    const row = symptoms.slice(i, i + cols)
+    y = maybeNewPage(doc, y, pillH + gapY, pageH, margin)
+
+    for (let c = 0; c < row.length; c++) {
+      const sym  = row[c]
+      const x    = margin + c * (cellW + 4)
+
+      if (sym.urgent) {
+        doc.setFillColor(254, 242, 242)
+        doc.setDrawColor(254, 202, 202)
+      } else {
+        doc.setFillColor(239, 246, 255)
+        doc.setDrawColor(191, 219, 254)
+      }
+      doc.setLineWidth(0.3)
+      doc.roundedRect(x, y, cellW, pillH, 1.5, 1.5, 'FD')
+
+      // Dot indicator
+      if (sym.urgent) {
+        doc.setFillColor(220, 38, 38)
+      } else {
+        doc.setFillColor(37, 99, 235)
+      }
+      doc.ellipse(x + 3.5, y + pillH / 2, 1.4, 1.4, 'F')
+
+      // Label
+      const textColor: [number, number, number] = sym.urgent ? [153, 27, 27] : [30, 58, 138]
+      doc.setFontSize(8)
+      doc.setFont('helvetica', sym.urgent ? 'bold' : 'normal')
+      doc.setTextColor(...textColor)
+      const maxTextW = cellW - 10
+      const truncated = doc.splitTextToSize(sym.display, maxTextW) as string[]
+      doc.text(truncated[0] + (truncated.length > 1 ? '…' : ''), x + 7, y + pillH / 2 + 0.5, { baseline: 'middle' })
+
+      // "URGENT" badge on right if flagged
+      if (sym.urgent) {
+        const badgeLabel = 'URGENT'
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(220, 38, 38)
+        doc.text(badgeLabel, x + cellW - 2, y + pillH / 2 + 0.5, { align: 'right', baseline: 'middle' })
+      }
+    }
+    y += pillH + gapY
+  }
+  return y
+}
+
+/**
  * Renders the green→yellow→red risk spectrum gauge with a needle at the
  * weighted `position` (0–100 scalar from risk probabilities).
  * Returns the y position after the whole gauge block.
@@ -452,49 +520,83 @@ export function generateAssessmentPDF(
 
   // ── Presenting Symptoms ───────────────────────────────────────────────────
 
-  y = maybeNewPage(doc, y, 22 + Math.max(presentingSymptoms.length, 1) * 5, pageH, margin)
+  y = maybeNewPage(doc, y, 26, pageH, margin)
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
-  doc.text(
-    `PRESENTING SYMPTOMS${presentingSymptoms.length > 0 ? ` (${presentingSymptoms.length} marked Present)` : ''}`,
-    margin,
-    y,
-  )
+  doc.text('PRESENTING SYMPTOMS', margin, y)
   y += 5
 
   if (presentingSymptoms.length > 0) {
+    const urgentCount  = presentingSymptoms.filter(s => s.urgent).length
+    const normalCount  = presentingSymptoms.length - urgentCount
+
+    // Summary bar
+    const barW = pageW - margin * 2
+    doc.setFillColor(249, 250, 251)
+    doc.setDrawColor(229, 231, 235)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(margin, y, barW, 10, 2, 2, 'FD')
+
     doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(55, 65, 81)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(17, 24, 39)
+    doc.text(`${presentingSymptoms.length} symptom${presentingSymptoms.length !== 1 ? 's' : ''} reported`, margin + 4, y + 6.5)
 
-    for (const symptom of presentingSymptoms) {
-      const label = symptom.urgent
-        ? `• ${symptom.display}  HIGH PRIORITY`
-        : `• ${symptom.display}`
-      const lines = doc.splitTextToSize(label, pageW - margin * 2 - 4) as string[]
+    let badgeX = margin + barW - 4
+    if (normalCount > 0) {
+      const label = `${normalCount} standard`
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(30, 58, 138)
+      doc.text(label, badgeX, y + 6.5, { align: 'right' })
+      badgeX -= doc.getTextWidth(label) + 8
+    }
+    if (urgentCount > 0) {
+      const label = `${urgentCount} urgent`
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(220, 38, 38)
+      doc.text(label, badgeX, y + 6.5, { align: 'right' })
+    }
+    y += 14
 
-      if (symptom.urgent) {
-        doc.setTextColor(153, 27, 27)
-        doc.setFont('helvetica', 'bold')
-      } else {
-        doc.setTextColor(55, 65, 81)
-        doc.setFont('helvetica', 'normal')
-      }
+    // Urgent symptoms first
+    const urgents = presentingSymptoms.filter(s => s.urgent)
+    const normals = presentingSymptoms.filter(s => !s.urgent)
 
-      doc.text(lines, margin + 3, y)
-      y += lines.length * 4.5 + 1
+    if (urgents.length > 0) {
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(220, 38, 38)
+      doc.text('⚠ Urgent / High-Priority', margin, y)
+      y += 4
+      y = drawSymptomsGrid(doc, y, margin, pageW, pageH, urgents)
+      y += 3
+    }
+
+    if (normals.length > 0) {
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(37, 99, 235)
+      doc.text('Standard Symptoms', margin, y)
+      y += 4
+      y = drawSymptomsGrid(doc, y, margin, pageW, pageH, normals)
     }
   } else {
+    doc.setFillColor(249, 250, 251)
+    doc.setDrawColor(229, 231, 235)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(margin, y, pageW - margin * 2, 10, 2, 2, 'FD')
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(107, 114, 128)
-    doc.text('No presenting symptoms were marked present for this assessment.', margin, y)
-    y += 8
+    doc.setTextColor(156, 163, 175)
+    doc.text('No presenting symptoms were reported for this assessment.', margin + 4, y + 6.5)
+    y += 10
   }
 
-  y += 4
+  y += 6
 
   // ── Assessment Summary ────────────────────────────────────────────────────
 
