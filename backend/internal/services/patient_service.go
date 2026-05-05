@@ -18,16 +18,16 @@ func NewPatientService(db *pgxpool.Pool) *PatientService {
 }
 
 type Patient struct {
-	ID                 string       `json:"id"`
-	PatientNumber      string       `json:"patient_number"`
-	FullName           string       `json:"full_name"`
-	Age                int          `json:"age"`
-	DateOfSubmission   string       `json:"date_of_submission"` // YYYY-MM-DD
-	CreatedBy          string       `json:"created_by"`
-	CreatedAt          time.Time    `json:"created_at"`
-	UpdatedAt          time.Time    `json:"updated_at"`
-	LatestRiskLevel    *string      `json:"latest_risk_level"`  // nil if no assessment yet
-	Assessments        []Assessment `json:"assessments,omitempty"`
+	ID               string       `json:"id"`
+	PatientNumber    string       `json:"patient_number"`
+	FullName         string       `json:"full_name"`
+	Age              int          `json:"age"`
+	DateOfSubmission string       `json:"date_of_submission"` // YYYY-MM-DD
+	CreatedBy        string       `json:"created_by"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+	LatestRiskLevel  *string      `json:"latest_risk_level"` // nil if no assessment yet
+	Assessments      []Assessment `json:"assessments,omitempty"`
 }
 
 type CreatePatientParams struct {
@@ -130,11 +130,15 @@ func (s *PatientService) GetPatient(ctx context.Context, id string) (*Patient, e
 	var p Patient
 	err := s.db.QueryRow(ctx, `
 		SELECT id, patient_number, full_name, age,
-		       TO_CHAR(date_of_submission, 'YYYY-MM-DD'), created_by, created_at, updated_at
-		FROM patients WHERE id=$1
+		       TO_CHAR(date_of_submission, 'YYYY-MM-DD'), created_by, created_at, updated_at,
+		       (SELECT a.risk_level FROM assessments a
+		        WHERE a.patient_id = p.id
+		        ORDER BY a.created_at DESC LIMIT 1) AS latest_risk_level
+		FROM patients p WHERE p.id=$1
 	`, id).Scan(
 		&p.ID, &p.PatientNumber, &p.FullName, &p.Age,
 		&p.DateOfSubmission, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		&p.LatestRiskLevel,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -154,6 +158,10 @@ func (s *PatientService) GetPatient(ctx context.Context, id string) (*Patient, e
 			active_risk_factors, protective_factors, summary_text,
 			top_contributing_factors, lifestyle_factor_notes,
 			clinical_recommendation, feature_importances,
+			family_history_score, family_history_relatives, family_history_detail,
+			symptom_score, symptoms_present, symptom_adjustment_applied,
+			symptom_adjustment, base_risk_level, final_risk_level,
+			age_advisory_shown, age_advisory, raw_symptom_dict,
 			created_at, updated_at
 		FROM assessments WHERE patient_id=$1 ORDER BY created_at DESC
 	`, id)

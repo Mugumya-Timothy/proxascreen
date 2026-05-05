@@ -59,7 +59,7 @@ export interface Assessment {
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
   alcohol_consumption:     AlcoholConsumption
-  family_history:          boolean
+  family_history:          boolean   // legacy — derived from score > 0
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
   risk_level:               RiskLevel
@@ -69,14 +69,52 @@ export interface Assessment {
   model_confidence:         number
   risk_explanation:         string
   active_risk_factors:      string[]
+  inactive_risk_factors?:   string[]
   protective_factors:       string[]
   summary_text:             string
   top_contributing_factors: ContributingFactor[]
   lifestyle_factor_notes:   LifestyleFactorNote[]
   clinical_recommendation:  string
   feature_importances:      Record<string, number>
+  // v2 fields
+  family_history_score:       number
+  family_history_relatives:   string   // JSON-encoded string[] from DB
+  family_history_detail:      FamilyHistoryDetail | null
+  symptom_score:              number
+  symptoms_present:           string   // JSON-encoded string[] from DB
+  symptom_adjustment_applied: boolean
+  symptom_adjustment:         SymptomAdjustment | null
+  base_risk_level:            RiskLevel
+  final_risk_level:           RiskLevel
+  age_advisory_shown:         boolean
+  age_advisory:               string | null
+  raw_symptom_dict:           Record<string, SymptomStatus> | null
+  eligible?:                  boolean
+  blocked_reason?:            string | null
   created_at:              string
   updated_at:              string
+}
+
+// ── v2 Assessment types ───────────────────────────────────────────────────────
+
+export type SymptomStatus = 'Present' | 'Absent' | 'Not Documented'
+
+export interface FamilyHistoryDetail {
+  has_history:   boolean
+  relatives:     string[]
+  score:         number
+  score_display: string
+  significance:  string
+}
+
+export interface SymptomAdjustment {
+  final_risk_level:     RiskLevel
+  base_risk_level:      RiskLevel
+  adjustment_applied:   boolean
+  adjustment_reason:    string
+  symptom_score:        number
+  symptoms_present:     string[]
+  urgent_symptom_flags: string[]
 }
 
 // ── API request/response shapes ───────────────────────────────────────────────
@@ -90,9 +128,10 @@ export interface CreatePatientRequest {
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
   alcohol_consumption:     AlcoholConsumption
-  family_history:          boolean
+  family_history_relatives: string[]
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
+  symptom_dict?:           Record<string, SymptomStatus>
 }
 
 export interface CreateAssessmentRequest {
@@ -102,9 +141,10 @@ export interface CreateAssessmentRequest {
   diet_type:               DietType
   physical_activity_level: PhysicalActivityLevel
   alcohol_consumption:     AlcoholConsumption
-  family_history:          boolean
+  family_history_relatives: string[]
   regular_health_checkup:  boolean
   prostate_exam_done:      boolean
+  symptom_dict?:           Record<string, SymptomStatus>
 }
 
 export interface PatientWithAssessment {

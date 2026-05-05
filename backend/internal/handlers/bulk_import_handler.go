@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,11 +41,15 @@ type importResult struct {
 }
 
 // BulkImportPatients accepts a multipart CSV or XLSX file.
-// Expected columns (case-insensitive, order flexible via header row):
+// Required columns (case-insensitive, order flexible via header row):
 //
-//	full_name, age, date_of_submission, bmi, smoker, diet_type,
-//	physical_activity_level, alcohol_consumption, family_history,
-//	regular_health_checkup, prostate_exam_done
+//	full_name, age, bmi, diet_type, physical_activity_level
+//
+// Optional columns:
+//
+//	date_of_submission, smoker, alcohol_consumption, regular_health_checkup,
+//	prostate_exam_done, family_history_relatives (pipe-separated: "father|brother"),
+//	symptoms (JSON string, e.g. '{"haematuria":"Present"}')
 func (h *BulkImportHandler) BulkImportPatients(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -133,9 +138,15 @@ func (h *BulkImportHandler) processRow(
 	}
 
 	smoker := parseBool(get("smoker"))
-	familyHistory := parseBool(get("family_history"))
 	regularCheckup := parseBool(get("regular_health_checkup"))
 	prostateExam := parseBool(get("prostate_exam_done"))
+
+	fhRelatives := parseRelatives(get("family_history_relatives"))
+
+	symptomDict, err := parseSymptomDict(get("symptoms"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid symptoms column: %w", err)
+	}
 
 	dietType := strings.ToLower(get("diet_type"))
 	if dietType != "fatty" && dietType != "mixed" && dietType != "healthy" {
@@ -175,17 +186,18 @@ func (h *BulkImportHandler) processRow(
 
 	// Create assessment (calls model service).
 	assessment, err := h.assessmentService.CreateAssessment(c.Request.Context(), services.CreateAssessmentParams{
-		PatientID:             patient.ID,
-		ClinicianClerkID:      clerkID,
-		Age:                   ageF,
-		BMI:                   bmi,
-		Smoker:                smoker,
-		DietType:              dietType,
-		PhysicalActivityLevel: pal,
-		AlcoholConsumption:    alcoholConsumption,
-		FamilyHistory:         familyHistory,
-		RegularHealthCheckup:  regularCheckup,
-		ProstateExamDone:      prostateExam,
+		PatientID:              patient.ID,
+		ClinicianClerkID:       clerkID,
+		Age:                    ageF,
+		BMI:                    bmi,
+		Smoker:                 smoker,
+		DietType:               dietType,
+		PhysicalActivityLevel:  pal,
+		AlcoholConsumption:     alcoholConsumption,
+		FamilyHistoryRelatives: fhRelatives,
+		RegularHealthCheckup:   regularCheckup,
+		ProstateExamDone:       prostateExam,
+		SymptomDict:            symptomDict,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create assessment: %w", err)
@@ -239,4 +251,36 @@ func buildColIndex(header []string) (map[string]int, error) {
 func parseBool(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))
 	return s == "true" || s == "yes" || s == "1"
+}
+
+// parseRelatives splits a pipe-separated string of relative keys.
+// E.g. "father|brother" → ["father", "brother"]
+func parseRelatives(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, "|")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// parseSymptomDict parses an optional JSON string into a symptom map.
+// Returns nil (no error) when s is empty.
+func parseSymptomDict(s string) (map[string]string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	var m map[string]string
+	if err := json.Unmarshal([]byte(s), &m); err != nil {
+		return nil, fmt.Errorf("symptoms must be a valid JSON object: %w", err)
+	}
+	return m, nil
 }

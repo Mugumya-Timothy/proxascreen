@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-import type { Assessment, Patient } from '../types'
+import type { Assessment, Patient, FamilyHistoryDetail, SymptomAdjustment } from '../types'
 
 const PRIMARY_RGB: [number, number, number] = [87, 190, 235]
 
@@ -73,7 +73,7 @@ function drawBarChart(
   pageW: number,
   data: { name: string; value: number; rgb: [number, number, number] }[],
   maxValue: number,
-  formatValue: (v: number) => string,
+  formatValue: (v: number, rank: number) => string,
   labelW: number,
 ): number {
   const chartW   = pageW - margin * 2
@@ -82,7 +82,8 @@ function drawBarChart(
   const rowH     = 8.5
   let y          = startY
 
-  for (const { name, value, rgb } of data) {
+  for (let i = 0; i < data.length; i++) {
+    const { name, value, rgb } = data[i]
     const barW = barAreaW * Math.min(value / maxValue, 1)
 
     // Category label
@@ -106,7 +107,7 @@ function drawBarChart(
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(17, 24, 39)
     doc.text(
-      formatValue(value),
+      formatValue(value, i),
       margin + labelW + barAreaW + 2,
       y + rowH / 2 + 1,
       { baseline: 'middle' },
@@ -198,6 +199,84 @@ function drawRiskGauge(
   return y + 5
 }
 
+function fiBandRgb(rank: number): [number, number, number] {
+  if (rank === 0)  return [185, 28,  28]
+  if (rank <= 2)   return [234, 88,  12]
+  if (rank <= 5)   return [37,  99,  235]
+  return [147, 197, 253]
+}
+
+function fiBandLabel(rank: number): string {
+  if (rank === 0)  return 'Highest'
+  if (rank <= 2)   return 'High'
+  if (rank <= 5)   return 'Moderate'
+  return 'Low'
+}
+
+const SYMPTOM_ORDER_PDF: { key: string; display: string; urgent?: boolean }[] = [
+  { key: 'difficulty_urination', display: 'Difficulty with urination',   urgent: true },
+  { key: 'increased_frequency',  display: 'Increased urinary frequency', urgent: true },
+  { key: 'urinary_retention',    display: 'Urinary retention',   urgent: true },
+  { key: 'haematuria',           display: 'Haematuria (blood in urine)', urgent: true },
+  { key: 'dysuria',              display: 'Dysuria (painful urination)' },
+  { key: 'pelvic_discomfort',    display: 'Pelvic discomfort' },
+  { key: 'perineal_pain',        display: 'Perineal or rectal pain' },
+  { key: 'back_pain',            display: 'Back pain' },
+  { key: 'bone_pain',            display: 'Bone pain (generalised or localised)', urgent: true },
+  { key: 'leg_weakness',         display: 'Leg weakness or paralysis', urgent: true },
+  { key: 'urinary_incontinence', display: 'Urinary incontinence' },
+  { key: 'weight_loss',          display: 'Weight loss' },
+  { key: 'fatigue',              display: 'Fatigue' },
+  { key: 'erectile_dysfunction', display: 'Erectile dysfunction' },
+  { key: 'others',               display: 'Other symptoms' },
+]
+
+function normalizeSymptomLabel(key: string): string {
+  const known = SYMPTOM_ORDER_PDF.find((sym) => sym.key === key)
+  if (known) return known.display
+  return key
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function parseStoredSymptoms(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function getPresentingSymptoms(
+  rawSymptoms: Record<string, string> | null,
+  symptomsPresent: string | null | undefined,
+): { key: string; display: string; urgent: boolean }[] {
+  const presentKeys = new Set<string>()
+
+  if (rawSymptoms) {
+    for (const [key, status] of Object.entries(rawSymptoms)) {
+      if (status === 'Present') presentKeys.add(key)
+    }
+  }
+
+  for (const key of parseStoredSymptoms(symptomsPresent)) {
+    presentKeys.add(key)
+  }
+
+  const ordered = SYMPTOM_ORDER_PDF
+    .filter((sym) => presentKeys.has(sym.key))
+    .map((sym) => ({ key: sym.key, display: sym.display, urgent: Boolean(sym.urgent) }))
+
+  const extras = [...presentKeys]
+    .filter((key) => !SYMPTOM_ORDER_PDF.some((sym) => sym.key === key))
+    .map((key) => ({ key, display: normalizeSymptomLabel(key), urgent: false }))
+
+  return [...ordered, ...extras]
+}
+
 export function generateAssessmentPDF(
   assessment: Assessment,
   patient: Patient,
@@ -208,6 +287,14 @@ export function generateAssessmentPDF(
   const pageH  = doc.internal.pageSize.getHeight()
   const margin = 14
   let y        = 18
+
+  const symAdj   = assessment.symptom_adjustment   as SymptomAdjustment   | null
+  const fhDetail = assessment.family_history_detail as FamilyHistoryDetail | null
+  const rawSymptoms = assessment.raw_symptom_dict as Record<string, string> | null
+  const presentingSymptoms = getPresentingSymptoms(rawSymptoms, assessment.symptoms_present)
+
+  const finalRisk = assessment.final_risk_level ?? assessment.risk_level
+  const baseRisk  = assessment.base_risk_level  ?? assessment.risk_level
 
   // ── Header ────────────────────────────────────────────────────────────────
 
@@ -277,18 +364,18 @@ export function generateAssessmentPDF(
   doc.text('RISK ASSESSMENT RESULT', margin, y)
   y += 3
 
-  const riskTextRgb = RISK_TEXT_RGB[assessment.risk_level] ?? RISK_TEXT_RGB.High
-  const riskBgRgb   = RISK_BG_RGB[assessment.risk_level]   ?? RISK_BG_RGB.High
+  const riskTextRgb = RISK_TEXT_RGB[finalRisk] ?? RISK_TEXT_RGB.High
+  const riskBgRgb   = RISK_BG_RGB[finalRisk]   ?? RISK_BG_RGB.High
 
   doc.setFillColor(...riskBgRgb)
   doc.roundedRect(margin, y, pageW - margin * 2, 14, 3, 3, 'F')
   doc.setFontSize(15)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...riskTextRgb)
-  doc.text(`${assessment.risk_level} Risk`, pageW / 2, y + 9.5, { align: 'center' })
+  doc.text(`${finalRisk} Risk`, pageW / 2, y + 9.5, { align: 'center' })
   y += 18
 
-  // ── Risk Gauge ────────────────────────────────────────────────────────────
+  // ── Risk Gauge ────────────────────────────────────────────────────────────────────
 
   // Weighted 0–100 position on the spectrum: 0 = all-Low, 100 = all-High
   const riskPos =
@@ -296,7 +383,7 @@ export function generateAssessmentPDF(
     assessment.medium_percentage * 0.5 +
     assessment.high_percentage   * 1.0
 
-  y = drawRiskGauge(doc, y, margin, pageW, riskPos, assessment.risk_level, assessment.model_confidence)
+  y = drawRiskGauge(doc, y, margin, pageW, riskPos, finalRisk, assessment.model_confidence)
   y += 6
 
   // ── Probability Distribution (bar chart) ──────────────────────────────────
@@ -354,13 +441,60 @@ export function generateAssessmentPDF(
       ['Alcohol Consumption',      cap(assessment.alcohol_consumption)],
       ['Diet Type',                cap(assessment.diet_type)],
       ['Physical Activity Level',  cap(assessment.physical_activity_level)],
-      ['Family History',           assessment.family_history ? 'Yes' : 'No'],
+      ['Family Hx Score',          fhDetail ? fhDetail.score_display : (assessment.family_history_score ?? 0).toFixed(2) + ' / 1.00'],
+      ...(fhDetail?.relatives?.length ? [['Relatives', fhDetail.relatives.join(', ')]] : []),
       ['Regular Health Checkup',   assessment.regular_health_checkup ? 'Yes' : 'No'],
       ['Prostate Exam Done',       assessment.prostate_exam_done ? 'Yes' : 'No'],
     ],
   })
 
   y = (doc as any).lastAutoTable.finalY + 10
+
+  // ── Presenting Symptoms ───────────────────────────────────────────────────
+
+  y = maybeNewPage(doc, y, 22 + Math.max(presentingSymptoms.length, 1) * 5, pageH, margin)
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(156, 163, 175)
+  doc.text(
+    `PRESENTING SYMPTOMS${presentingSymptoms.length > 0 ? ` (${presentingSymptoms.length} marked Present)` : ''}`,
+    margin,
+    y,
+  )
+  y += 5
+
+  if (presentingSymptoms.length > 0) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(55, 65, 81)
+
+    for (const symptom of presentingSymptoms) {
+      const label = symptom.urgent
+        ? `• ${symptom.display}  HIGH PRIORITY`
+        : `• ${symptom.display}`
+      const lines = doc.splitTextToSize(label, pageW - margin * 2 - 4) as string[]
+
+      if (symptom.urgent) {
+        doc.setTextColor(153, 27, 27)
+        doc.setFont('helvetica', 'bold')
+      } else {
+        doc.setTextColor(55, 65, 81)
+        doc.setFont('helvetica', 'normal')
+      }
+
+      doc.text(lines, margin + 3, y)
+      y += lines.length * 4.5 + 1
+    }
+  } else {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(107, 114, 128)
+    doc.text('No presenting symptoms were marked present for this assessment.', margin, y)
+    y += 8
+  }
+
+  y += 4
 
   // ── Assessment Summary ────────────────────────────────────────────────────
 
@@ -383,12 +517,28 @@ export function generateAssessmentPDF(
     doc.text(summaryLines, margin, y)
     y += summaryLines.length * 4.5 + 8
   } else {
+    // Symptom adjustment note
+    if (symAdj?.adjustment_applied && baseRisk !== finalRisk) {
+      const adjNote = `Note: Base model predicted ${baseRisk.toUpperCase()} Risk. Presenting symptoms elevated the final risk to ${finalRisk.toUpperCase()} Risk.`
+      const adjLines = doc.splitTextToSize(adjNote, pageW - margin * 2 - 8) as string[]
+      const adjBoxH  = adjLines.length * 4.5 + 8
+      doc.setFillColor(255, 251, 235)
+      doc.setDrawColor(217, 119, 6)
+      doc.setLineWidth(0.3)
+      doc.roundedRect(margin, y, pageW - margin * 2, adjBoxH, 2, 2, 'FD')
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(146, 64, 14)
+      doc.text(adjLines, margin + 4, y + 5)
+      y += adjBoxH + 4
+    }
+
     // Risk statement
-    const riskColor = RISK_TEXT_RGB[assessment.risk_level] ?? RISK_TEXT_RGB.High
+    const riskColor = RISK_TEXT_RGB[finalRisk] ?? RISK_TEXT_RGB.High
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...riskColor)
-    const riskStmt = `This patient was assessed as ${assessment.risk_level.toUpperCase()} RISK of prostate cancer.`
+    const riskStmt = `This patient was assessed as ${finalRisk.toUpperCase()} RISK of prostate cancer.`
     const riskStmtLines = doc.splitTextToSize(riskStmt, pageW - margin * 2) as string[]
     doc.text(riskStmtLines, margin, y)
     y += riskStmtLines.length * 5.5 + 4
@@ -598,6 +748,45 @@ export function generateAssessmentPDF(
     y += 4
   }
 
+  // ── Symptom Adjustment ────────────────────────────────────────────────────
+
+  if (symAdj?.adjustment_applied) {
+    y = maybeNewPage(doc, y, 35, pageH, margin)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('SYMPTOM ADJUSTMENT', margin, y)
+    y += 4
+
+    const adjReasonLines = doc.splitTextToSize(symAdj.adjustment_reason, pageW - margin * 2 - 8) as string[]
+    const flagCount      = symAdj.urgent_symptom_flags.length
+    const adjBoxH        = adjReasonLines.length * 4.5 + (flagCount > 0 ? flagCount * 4.5 + 4 : 0) + 14
+    doc.setFillColor(255, 251, 235)
+    doc.setDrawColor(217, 119, 6)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(margin, y, pageW - margin * 2, adjBoxH, 2, 2, 'FD')
+
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(146, 64, 14)
+    doc.text(adjReasonLines, margin + 4, y + 5)
+    let adjY = y + 5 + adjReasonLines.length * 4.5
+
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Symptom burden score: ${symAdj.symptom_score.toFixed(2)}`, margin + 4, adjY + 4)
+    adjY += 8
+
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(153, 27, 27)
+    for (const flag of symAdj.urgent_symptom_flags) {
+      doc.text(`\u26a0 ${flag}`, margin + 4, adjY)
+      adjY += 4.5
+    }
+
+    y = y + adjBoxH + 6
+  }
+
   // ── Feature Importance Chart ──────────────────────────────────────────────
 
   const fiEntries = Object.entries(assessment.feature_importances ?? {}).sort(
@@ -605,9 +794,8 @@ export function generateAssessmentPDF(
   )
 
   if (fiEntries.length > 0) {
-    const top3Keys = new Set(fiEntries.slice(0, 3).map(([k]) => k))
-    const maxFI    = fiEntries[0][1]
-    const chartH   = fiEntries.length * 8.5 + 20
+    const maxFI  = fiEntries[0][1]
+    const chartH = fiEntries.length * 8.5 + 22
 
     y = maybeNewPage(doc, y, chartH, pageH, margin)
 
@@ -617,19 +805,34 @@ export function generateAssessmentPDF(
     doc.text('FEATURE IMPORTANCE', margin, y)
     y += 3
 
+    // Tier legend
+    const tiers: { rgb: [number, number, number]; label: string }[] = [
+      { rgb: [185, 28, 28],   label: 'Highest' },
+      { rgb: [234, 88, 12],   label: 'High' },
+      { rgb: [37, 99, 235],   label: 'Moderate' },
+      { rgb: [147, 197, 253], label: 'Low' },
+    ]
+    let lx = margin
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.text('Red = top 3 most influential features', margin, y)
-    y += 5
+    for (const tier of tiers) {
+      doc.setFillColor(...tier.rgb)
+      doc.ellipse(lx + 1.5, y + 2, 1.5, 1.5, 'F')
+      doc.setTextColor(107, 114, 128)
+      doc.text(tier.label, lx + 5, y + 2.8)
+      lx += tier.label.length * 2.5 + 8
+    }
+    y += 6
 
     y = drawBarChart(
       doc, y, margin, pageW,
-      fiEntries.map(([key, val]) => ({
+      fiEntries.map(([key, val], rank) => ({
         name:  featureLabel(key),
         value: val,
-        rgb:   (top3Keys.has(key) ? [239, 68, 68] : [59, 130, 246]) as [number, number, number],
+        rgb:   fiBandRgb(rank),
       })),
       maxFI,
-      (v) => v.toFixed(3),
+      (_v, rank) => fiBandLabel(rank),
       80,
     )
     y += 8

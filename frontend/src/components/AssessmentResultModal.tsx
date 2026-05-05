@@ -7,7 +7,14 @@ import {
   ResponsiveContainer,
   LabelList,
 } from 'recharts'
-import type { Assessment, ContributingFactor, LifestyleFactorNote } from '../types'
+import type {
+  Assessment,
+  ContributingFactor,
+  LifestyleFactorNote,
+  FamilyHistoryDetail,
+  SymptomAdjustment,
+  RiskLevel,
+} from '../types'
 import RiskBadge from './RiskBadge'
 
 interface Props {
@@ -43,33 +50,76 @@ const FEATURE_LABELS: Record<string, string> = {
 function featureLabel(key: string): string {
   return (
     FEATURE_LABELS[key] ??
-    key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    key.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   )
+}
+
+// Tier colour for feature importance bars
+function fiBandColor(importance: number, rank: number): string {
+  if (rank === 0) return '#b91c1c'  // deep red — Highest
+  if (rank <= 2)  return '#ea580c'  // orange   — High
+  if (rank <= 5)  return '#2563eb'  // blue     — Moderate
+  return '#93c5fd'                  // light blue — Low
+}
+
+function fiBandLabel(rank: number): string {
+  if (rank === 0)  return 'Highest'
+  if (rank <= 2)   return 'High'
+  if (rank <= 5)   return 'Moderate'
+  return 'Low'
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AssessmentResultModal({ assessment, onClose }: Props) {
+  // Ineligible case — age gate blocked
+  if (assessment.eligible === false) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🚫</span>
+            <h2 className="text-lg font-bold text-gray-900">Assessment Blocked</h2>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-gray-600">
+            {assessment.blocked_reason ?? 'This patient is not eligible for prostate cancer risk assessment.'}
+          </p>
+          <button onClick={onClose} className="btn-primary mt-5 w-full">Close</button>
+        </div>
+      </div>
+    )
+  }
+
+  const symAdj      = assessment.symptom_adjustment as SymptomAdjustment | null
+  const fhDetail    = assessment.family_history_detail as FamilyHistoryDetail | null
+  const rawSymptoms = assessment.raw_symptom_dict as Record<string, string> | null
+
+  const baseRisk  = (assessment.base_risk_level ?? assessment.risk_level) as RiskLevel
+  const finalRisk = (assessment.final_risk_level ?? assessment.risk_level) as RiskLevel
+  const adjApplied = symAdj?.adjustment_applied ?? false
+
   const pos = riskPosition(
     assessment.low_percentage,
     assessment.medium_percentage,
     assessment.high_percentage,
   )
 
+  // Probability bars — always show BASE model probabilities
   const probData = [
     { name: 'High Risk',   value: assessment.high_percentage,   fill: '#ef4444' },
     { name: 'Medium Risk', value: assessment.medium_percentage, fill: '#facc15' },
     { name: 'Low Risk',    value: assessment.low_percentage,    fill: '#22c55e' },
   ]
 
-  const fiEntries = Object.entries(assessment.feature_importances).sort(
+  // Feature importance — tiered colour, no decimals as labels
+  const fiEntries = Object.entries(assessment.feature_importances ?? {}).sort(
     (a, b) => b[1] - a[1],
   )
-  const top3Keys = new Set(fiEntries.slice(0, 3).map(([k]) => k))
-  const fiData = fiEntries.map(([key, val]) => ({
+  const fiData = fiEntries.map(([key, val], rank) => ({
     name:  featureLabel(key),
     value: val,
-    fill:  top3Keys.has(key) ? '#ef4444' : '#5FB0E3',
+    fill:  fiBandColor(val, rank),
+    tier:  fiBandLabel(rank),
   }))
 
   return (
@@ -77,7 +127,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="flex w-full max-w-3xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl max-h-[92vh]">
+      <div className="flex w-full max-w-5xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl max-h-[92vh]">
 
         {/* ── Header ── */}
         <div
@@ -94,7 +144,7 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <RiskBadge level={assessment.risk_level} size="md" />
+            <RiskBadge level={finalRisk} size="md" />
             <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
@@ -108,16 +158,30 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
         {/* ── Scrollable body ── */}
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
 
-          {/* 1 — Risk gauge */}
+          {/* Age advisory banner */}
+          {assessment.age_advisory_shown && assessment.age_advisory && (
+            <div className="flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+              <span className="text-amber-500 mt-0.5">⚠</span>
+              <p className="text-sm text-amber-700">{assessment.age_advisory}</p>
+            </div>
+          )}
+
+          {/* Risk gauge */}
           <RiskGauge
-            riskLevel={assessment.risk_level}
+            riskLevel={finalRisk}
             confidence={assessment.model_confidence}
             position={pos}
           />
 
-          {/* 2 — Probability + Key inputs */}
+          {/* Probability + Key inputs */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <SectionBox title="Probability Distribution">
+            <SectionBox title="Probability Distribution (Base Model)">
+              {adjApplied && baseRisk !== finalRisk && (
+                <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-200">
+                  Base model: <strong>{baseRisk}</strong> Risk → Final after symptoms:{' '}
+                  <strong>{finalRisk}</strong> Risk ↑
+                </div>
+              )}
               <div className="h-[130px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -153,85 +217,55 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             <SectionBox title="Key Inputs Recorded">
               <dl className="space-y-1.5">
                 {([
-                  { label: 'BMI',           value: assessment.bmi.toFixed(1) },
-                  { label: 'Smoker',        value: assessment.smoker ? 'Yes' : 'No' },
-                  { label: 'Alcohol',       value: capitalize(assessment.alcohol_consumption) },
-                  { label: 'Diet',          value: capitalize(assessment.diet_type) },
-                  { label: 'Activity',      value: capitalize(assessment.physical_activity_level) },
-                  { label: 'Family Hx',     value: assessment.family_history ? 'Yes' : 'No' },
-                  { label: 'Prostate Exam', value: assessment.prostate_exam_done ? 'Yes' : 'No' },
+                  { label: 'BMI',              value: assessment.bmi.toFixed(1) },
+                  { label: 'Smoker',           value: assessment.smoker ? 'Yes' : 'No' },
+                  { label: 'Alcohol',          value: capitalize(assessment.alcohol_consumption) },
+                  { label: 'Diet',             value: capitalize(assessment.diet_type) },
+                  { label: 'Activity',         value: capitalize(assessment.physical_activity_level) },
+                  { label: 'Family Hx Score',  value: fhDetail ? fhDetail.score_display : (assessment.family_history_score ?? 0).toFixed(2) + ' / 1.00' },
+                  { label: 'Prostate Exam',    value: assessment.prostate_exam_done ? 'Yes' : 'No' },
                 ] as const).map(({ label, value }) => (
                   <div
                     key={label}
                     className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5"
                   >
                     <span className="text-xs text-gray-500">{label}</span>
-                    <span className="text-xs font-semibold text-gray-900">{value}</span>
+                    <span className="text-xs font-semibold text-gray-900">{value as string}</span>
                   </div>
                 ))}
               </dl>
             </SectionBox>
           </div>
 
-          {/* 3 — Assessment summary */}
-          <SectionBox title="Assessment Summary">
-            <AssessmentSummary assessment={assessment} />
+          {/* a — Assessment Summary */}
+          <SectionBox title="a — Assessment Summary">
+            <AssessmentSummary assessment={assessment} symAdj={symAdj} />
           </SectionBox>
 
-          {/* 4 — Primary risk factors */}
-          <PrimaryRiskFactors assessment={assessment} />
+          {/* b — Family History Details */}
+          {fhDetail && (
+            <SectionBox title="b — Family History Details">
+              <FamilyHistorySection detail={fhDetail} />
+            </SectionBox>
+          )}
 
-          {/* 5 — Contributing factors */}
-          <SectionBox title="Key Contributing Factors">
+          {/* c — Key Contributing Factors */}
+          <SectionBox title="c — Key Contributing Factors">
             <div className="space-y-2">
+              {adjApplied && symAdj && (
+                <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-200">
+                  <strong>Symptom adjustment applied.</strong>{' '}
+                  {symAdj.adjustment_reason}
+                </div>
+              )}
               {assessment.top_contributing_factors.map((factor, i) => (
                 <FactorRow key={i} factor={factor} index={i + 1} />
               ))}
             </div>
           </SectionBox>
 
-          {/* 6 — Feature importance chart */}
-          <SectionBox title="Feature Importance — Overall Model">
-            <p className="mb-3 text-xs text-gray-400">
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-                Top 3 most influential features
-              </span>
-            </p>
-            <div style={{ height: fiData.length * 26 + 8 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  layout="vertical"
-                  data={fiData}
-                  margin={{ top: 0, right: 52, bottom: 0, left: 0 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={130}
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {fiData.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
-                    <LabelList
-                      dataKey="value"
-                      position="right"
-                      formatter={(v: unknown) => Number(v).toFixed(3)}
-                      style={{ fontSize: 10, fill: '#6b7280' }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </SectionBox>
-
-          {/* 7 — Clinical recommendation */}
-          <SectionBox title="Clinical Recommendation">
+          {/* d — Clinical Recommendation */}
+          <SectionBox title="d — Clinical Recommendation">
             <p className="text-sm leading-relaxed text-gray-700">
               {assessment.clinical_recommendation}
             </p>
@@ -250,6 +284,84 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             </div>
           </SectionBox>
 
+          {/* Panel 3 — Feature Importance (tiered) */}
+          <SectionBox title="Feature Importance — Model Overview">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {[
+                { color: '#b91c1c', label: 'Highest' },
+                { color: '#ea580c', label: 'High' },
+                { color: '#2563eb', label: 'Moderate' },
+                { color: '#93c5fd', label: 'Low' },
+              ].map(({ color, label }) => (
+                <span key={label} className="inline-flex items-center gap-1 text-xs text-gray-500">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div style={{ height: fiData.length * 28 + 8 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  layout="vertical"
+                  data={fiData}
+                  margin={{ top: 0, right: 70, bottom: 0, left: 0 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={130}
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {fiData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                    <LabelList
+                      dataKey="tier"
+                      position="right"
+                      style={{ fontSize: 10, fill: '#6b7280' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Symptom adjustment sub-section inside Panel 3 */}
+            {adjApplied && symAdj && (
+              <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-700 mb-2">
+                  Symptom Adjustment Applied
+                </p>
+                <p className="text-xs text-amber-600 mb-2">{symAdj.adjustment_reason}</p>
+                <p className="text-xs text-amber-600">
+                  Symptom burden score: <strong>{symAdj.symptom_score.toFixed(2)}</strong>
+                </p>
+                {symAdj.urgent_symptom_flags.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold text-amber-700">Urgent symptoms flagged:</p>
+                    <ul className="mt-1 list-inside list-disc space-y-0.5">
+                      {symAdj.urgent_symptom_flags.map((s, i) => (
+                        <li key={i} className="text-xs text-amber-600">⚠ {s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </SectionBox>
+
+          {/* Panel 4 — Symptom Heatmap */}
+          <SectionBox title="Presenting Symptoms Heatmap">
+            {rawSymptoms && Object.keys(rawSymptoms).length > 0 ? (
+              <SymptomHeatmap rawSymptomDict={rawSymptoms} urgentFlags={symAdj?.urgent_symptom_flags ?? []} />
+            ) : (
+              <p className="py-4 text-center text-sm text-gray-400">No Presenting Symptoms Recorded</p>
+            )}
+          </SectionBox>
+
         </div>
 
         {/* ── Footer ── */}
@@ -264,26 +376,37 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
   )
 }
 
-// ── Assessment summary ────────────────────────────────────────────────────────
+// ── Assessment Summary (Section a) ────────────────────────────────────────────
 
-function AssessmentSummary({ assessment }: { assessment: Assessment }) {
-  const hasStructured = assessment.summary_text && assessment.summary_text.length > 0
-
-  if (!hasStructured) {
-    return <p className="text-sm leading-relaxed text-gray-700">{assessment.risk_explanation}</p>
-  }
-
+function AssessmentSummary({
+  assessment,
+  symAdj,
+}: {
+  assessment: Assessment
+  symAdj: SymptomAdjustment | null
+}) {
+  const adjApplied  = symAdj?.adjustment_applied ?? false
+  const baseRisk    = assessment.base_risk_level ?? assessment.risk_level
+  const finalRisk   = assessment.final_risk_level ?? assessment.risk_level
   const activeCount = assessment.active_risk_factors?.length ?? 0
-  const riskLabel   = assessment.risk_level.toUpperCase()
+  const riskLabel   = finalRisk.toUpperCase()
 
   return (
     <div className="space-y-4">
+      {adjApplied && (
+        <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
+          The base model predicted <strong>{baseRisk.toUpperCase()}</strong> risk based on
+          clinical features. Presenting symptoms elevated the final risk to{' '}
+          <strong>{finalRisk.toUpperCase()}</strong>.
+        </div>
+      )}
+
       <p className="text-sm font-medium text-gray-900">
         This patient was assessed as{' '}
         <span className={
-          assessment.risk_level === 'High'   ? 'font-bold text-red-600' :
-          assessment.risk_level === 'Medium' ? 'font-bold text-yellow-600' :
-                                               'font-bold text-green-600'
+          finalRisk === 'High'   ? 'font-bold text-red-600' :
+          finalRisk === 'Medium' ? 'font-bold text-yellow-600' :
+                                    'font-bold text-green-600'
         }>
           {riskLabel} RISK
         </span>{' '}
@@ -338,6 +461,39 @@ function AssessmentSummary({ assessment }: { assessment: Assessment }) {
   )
 }
 
+// ── Family History Section (Section b) ───────────────────────────────────────
+
+function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          detail.has_history
+            ? 'bg-red-100 text-red-700'
+            : 'bg-green-100 text-green-700'
+        }`}>
+          {detail.has_history ? 'History Present' : 'No History'}
+        </span>
+        <span className="text-sm font-semibold text-gray-700">Score: {detail.score_display}</span>
+      </div>
+
+      {detail.relatives.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {detail.relatives.map((r) => (
+            <span key={r} className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">
+              {r}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <p className="text-sm leading-relaxed text-gray-600">{detail.significance}</p>
+    </div>
+  )
+}
+
+// ── Lifestyle factor note row ─────────────────────────────────────────────────
+
 function LifestyleNoteRow({ note }: { note: LifestyleFactorNote }) {
   const increased = note.direction === 'Increased risk'
   return (
@@ -360,71 +516,79 @@ function LifestyleNoteRow({ note }: { note: LifestyleFactorNote }) {
   )
 }
 
-// ── Primary risk factors ──────────────────────────────────────────────────────
+// ── Symptom Heatmap (Panel 4) ─────────────────────────────────────────────────
 
-const PRIMARY_RISK_FACTORS: {
-  label:        string
-  isActive:     (a: Assessment) => boolean
-  activeText:   string
-  inactiveText: string
-}[] = [
-  {
-    label:        'Smoking status',
-    isActive:     (a) => a.smoker,
-    activeText:   'Active — patient is a smoker',
-    inactiveText: 'Not active (non-smoker)',
-  },
-  {
-    label:        'Family history of prostate cancer',
-    isActive:     (a) => a.family_history,
-    activeText:   'Active — family history present',
-    inactiveText: 'Not active (no family history)',
-  },
-  {
-    label:        'Regular health checkup attendance',
-    isActive:     (a) => !a.regular_health_checkup,
-    activeText:   'Active — no regular checkups attended',
-    inactiveText: 'Not active (attends regular checkups)',
-  },
-  {
-    label:        'Prior prostate examination',
-    isActive:     (a) => !a.prostate_exam_done,
-    activeText:   'Active — no prior examination on record',
-    inactiveText: 'Not active (prior examination on record)',
-  },
+const SYMPTOM_ORDER: { key: string; display: string; urgent?: boolean }[] = [
+  { key: 'difficulty_urination', display: 'Difficulty urination' },
+  { key: 'increased_frequency',  display: 'Increased frequency' },
+  { key: 'urinary_retention',    display: 'Urinary retention',      urgent: true },
+  { key: 'haematuria',           display: 'Haematuria',             urgent: true },
+  { key: 'dysuria',              display: 'Dysuria' },
+  { key: 'pelvic_discomfort',    display: 'Pelvic discomfort' },
+  { key: 'perineal_pain',        display: 'Perineal/rectal pain' },
+  { key: 'back_pain',            display: 'Back pain' },
+  { key: 'bone_pain',            display: 'Bone pain',             urgent: true },
+  { key: 'leg_weakness',         display: 'Leg weakness',          urgent: true },
+  { key: 'urinary_incontinence', display: 'Urinary incontinence' },
+  { key: 'weight_loss',          display: 'Weight loss' },
+  { key: 'fatigue',              display: 'Fatigue' },
+  { key: 'erectile_dysfunction', display: 'Erectile dysfunction' },
+  { key: 'others',               display: 'Others' },
 ]
 
-function PrimaryRiskFactors({ assessment }: { assessment: Assessment }) {
-  const resolved   = PRIMARY_RISK_FACTORS.map((f) => ({ ...f, active: f.isActive(assessment) }))
-  const activeCount = resolved.filter((f) => f.active).length
+const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
+  'Present':       { bg: 'bg-red-100',         text: 'text-red-700',    label: 'Present'        },
+  'Absent':        { bg: 'bg-green-50',         text: 'text-green-700',  label: 'Absent'         },
+  'Not Documented':{ bg: 'bg-yellow-50',        text: 'text-yellow-700', label: 'Not Documented' },
+}
 
+function SymptomHeatmap({
+  rawSymptomDict,
+  urgentFlags,
+}: {
+  rawSymptomDict: Record<string, string>
+  urgentFlags:    string[]
+}) {
   return (
-    <SectionBox title={`Primary Risk Factors Assessed (${activeCount} of 4 active)`}>
-      <div className="space-y-2">
-        {resolved.map(({ label, active, activeText, inactiveText }) => (
-          <div
-            key={label}
-            className={`flex items-center gap-3 overflow-hidden rounded-lg border-l-2 px-3 py-2.5 ${
-              active
-                ? 'border-red-400 bg-red-50'
-                : 'border-green-400 bg-green-50'
-            }`}
-          >
-            <span className={`h-2 w-2 shrink-0 rounded-full ${active ? 'bg-red-500' : 'bg-green-500'}`} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gray-900">{label}</p>
-              <p className={`text-xs ${active ? 'text-red-600' : 'text-green-600'}`}>
-                {active ? activeText : inactiveText}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </SectionBox>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
+            <th className="pb-2 pr-3 w-full">Symptom</th>
+            <th className="pb-2 px-2 text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {SYMPTOM_ORDER.map((sym) => {
+            const status = rawSymptomDict[sym.key] ?? 'Not Documented'
+            const style  = STATUS_STYLE[status] ?? STATUS_STYLE['Not Documented']
+            const isUrgentFlagged = sym.urgent && status === 'Present'
+            return (
+              <tr key={sym.key} className="hover:bg-gray-50/50">
+                <td className="py-1.5 pr-3 text-gray-700 leading-snug">
+                  {sym.urgent && <span className="mr-1 text-amber-500" title="High-priority">⚠</span>}
+                  {sym.display}
+                  {isUrgentFlagged && (
+                    <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
+                      URGENT
+                    </span>
+                  )}
+                </td>
+                <td className="py-1.5 px-2 text-center">
+                  <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold ${style.bg} ${style.text}`}>
+                    {style.label}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Risk gauge ────────────────────────────────────────────────────────────────
 
 function RiskGauge({
   riskLevel,
@@ -456,7 +620,6 @@ function RiskGauge({
 
       {/* Gauge */}
       <div className="relative pb-6 pt-1">
-        {/* Track */}
         <div
           className="h-6 w-full overflow-hidden rounded-full shadow-inner"
           style={{
@@ -464,7 +627,6 @@ function RiskGauge({
               'linear-gradient(to right, #22c55e, #86efac 30%, #facc15 50%, #fb923c 70%, #ef4444)',
           }}
         />
-        {/* Needle */}
         <div
           className="pointer-events-none absolute top-1 -translate-x-1/2"
           style={{ left: `${needleX}%` }}
@@ -475,7 +637,6 @@ function RiskGauge({
           </svg>
         </div>
 
-        {/* Zone labels */}
         <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs font-bold">
           <span className="text-green-600">LOW</span>
           <span className="text-yellow-600">MEDIUM</span>
@@ -485,6 +646,8 @@ function RiskGauge({
     </div>
   )
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -532,15 +695,8 @@ function ChartIcon({ className }: { className?: string }) {
 
 function XIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-      aria-hidden
-    >
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )

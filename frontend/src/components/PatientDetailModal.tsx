@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import RiskBadge from './RiskBadge'
 import NewAssessmentModal from './NewAssessmentModal'
@@ -20,6 +21,11 @@ export default function PatientDetailModal({
   const { user } = useUser()
   const clinicianName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown Clinician'
   const { data: patient, isLoading, isError } = usePatient(patientId)
+
+  const latestAssessment = patient?.assessments?.[0]
+  const latestRiskLevel = patient?.latest_risk_level
+    ?? latestAssessment?.final_risk_level
+    ?? latestAssessment?.risk_level
 
   const initials = patient
     ? patient.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -92,7 +98,7 @@ export default function PatientDetailModal({
                           <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                             {patient.patient_number}
                           </span>
-                          <RiskBadge level={(patient.latest_risk_level ?? null) as RiskLevel | null} />
+                          <RiskBadge level={(latestRiskLevel ?? null) as RiskLevel | null} />
                         </div>
                         <p className="mt-1 text-sm text-gray-500">
                           Age {patient.age} · Submitted {formatDate(patient.date_of_submission)}
@@ -180,7 +186,14 @@ export default function PatientDetailModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex shrink-0 justify-end border-t border-gray-100 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 px-6 py-4">
+          <Link
+            to={`${base}/patients/${patientId}`}
+            onClick={onClose}
+            className="btn-outline inline-flex"
+          >
+            View Patient Record
+          </Link>
           <button type="button" onClick={onClose} className="btn-outline">
             Close
           </button>

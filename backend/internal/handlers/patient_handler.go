@@ -19,17 +19,18 @@ func NewPatientHandler(patientService *services.PatientService, assessmentServic
 }
 
 type createPatientRequest struct {
-	FullName              string  `json:"full_name" binding:"required"`
-	Age                   int     `json:"age" binding:"required,min=1,max=120"`
-	DateOfSubmission      string  `json:"date_of_submission"` // optional, YYYY-MM-DD
-	BMI                   float64 `json:"bmi" binding:"required,gt=0"`
-	Smoker                bool    `json:"smoker"`
-	DietType              string  `json:"diet_type" binding:"required,oneof=fatty mixed healthy"`
-	PhysicalActivityLevel string  `json:"physical_activity_level" binding:"required,oneof=low moderate high"`
-	AlcoholConsumption    string  `json:"alcohol_consumption" binding:"required,oneof=no moderate high"`
-	FamilyHistory         bool    `json:"family_history"`
-	RegularHealthCheckup  bool    `json:"regular_health_checkup"`
-	ProstateExamDone      bool    `json:"prostate_exam_done"`
+	FullName               string            `json:"full_name" binding:"required"`
+	Age                    int               `json:"age" binding:"required,min=1,max=120"`
+	DateOfSubmission       string            `json:"date_of_submission"` // optional, YYYY-MM-DD
+	BMI                    float64           `json:"bmi" binding:"required,gt=0"`
+	Smoker                 bool              `json:"smoker"`
+	DietType               string            `json:"diet_type" binding:"required,oneof=fatty mixed healthy"`
+	PhysicalActivityLevel  string            `json:"physical_activity_level" binding:"required,oneof=low moderate high"`
+	AlcoholConsumption     string            `json:"alcohol_consumption" binding:"required,oneof=no moderate high"`
+	FamilyHistoryRelatives []string          `json:"family_history_relatives"`
+	RegularHealthCheckup   bool              `json:"regular_health_checkup"`
+	ProstateExamDone       bool              `json:"prostate_exam_done"`
+	SymptomDict            map[string]string `json:"symptom_dict"`
 }
 
 type createPatientResponse struct {
@@ -58,17 +59,18 @@ func (h *PatientHandler) CreatePatient(c *gin.Context) {
 	}
 
 	assessment, err := h.assessmentService.CreateAssessment(c.Request.Context(), services.CreateAssessmentParams{
-		PatientID:             patient.ID,
-		ClinicianClerkID:      clerkID.(string),
-		Age:                   float64(req.Age),
-		BMI:                   req.BMI,
-		Smoker:                req.Smoker,
-		DietType:              req.DietType,
-		PhysicalActivityLevel: req.PhysicalActivityLevel,
-		AlcoholConsumption:    req.AlcoholConsumption,
-		FamilyHistory:         req.FamilyHistory,
-		RegularHealthCheckup:  req.RegularHealthCheckup,
-		ProstateExamDone:      req.ProstateExamDone,
+		PatientID:              patient.ID,
+		ClinicianClerkID:       clerkID.(string),
+		Age:                    float64(req.Age),
+		BMI:                    req.BMI,
+		Smoker:                 req.Smoker,
+		DietType:               req.DietType,
+		PhysicalActivityLevel:  req.PhysicalActivityLevel,
+		AlcoholConsumption:     req.AlcoholConsumption,
+		FamilyHistoryRelatives: req.FamilyHistoryRelatives,
+		RegularHealthCheckup:   req.RegularHealthCheckup,
+		ProstateExamDone:       req.ProstateExamDone,
+		SymptomDict:            req.SymptomDict,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "patient created but assessment failed: " + err.Error()})
