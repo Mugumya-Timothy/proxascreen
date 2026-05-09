@@ -6,6 +6,7 @@ import ServiceStatusPanel from '../../components/ServiceStatusPanel'
 import { useAdminStats } from '../../hooks/useDashboard'
 import AddPatientModal from '../../components/AddPatientModal'
 import AddClinicianModal from '../../components/AddClinicianModal'
+import AdminAboutTab from './AdminAboutTab'
 
 export default function DashboardPage() {
   const { user } = useUser()
@@ -16,6 +17,7 @@ export default function DashboardPage() {
 
   const [showAddPatient,    setShowAddPatient]    = useState(false)
   const [showAddClinician,  setShowAddClinician]  = useState(false)
+  const [activeTab, setActiveTab] = useState<'overview' | 'about'>('overview')
 
   const { data: stats, isLoading, isError } = useAdminStats()
 
@@ -82,6 +84,27 @@ export default function DashboardPage() {
           <span>Failed to load dashboard stats. Please refresh the page.</span>
         </div>
       )}
+
+      {/* ── Tab bar ───────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 self-start rounded-xl bg-gray-100 p-1">
+        {(['overview', 'about'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              activeTab === tab
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'overview' ? 'Overview' : 'About & AI Model'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' ? (
+      <div className="space-y-6">
 
       {/* ── Stat cards ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -238,6 +261,11 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      </div>
+      ) : (
+        <AdminAboutTab />
+      )}
 
       {showAddPatient && (
         <AddPatientModal base="/admin" onClose={() => setShowAddPatient(false)} />
