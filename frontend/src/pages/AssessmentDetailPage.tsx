@@ -498,6 +498,17 @@ export default function AssessmentDetailPage() {
 
 // ── Assessment summary (structured) ──────────────────────────────────────────
 
+const RELATIVE_LABELS: Record<string, string> = {
+  father:               'Father',
+  brother:              'Brother',
+  paternal_grandfather: 'Paternal Grandfather',
+  maternal_grandfather: 'Maternal Grandfather',
+}
+
+function formatRelative(key: string): string {
+  return RELATIVE_LABELS[key] ?? key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
 function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
   return (
     <div className="space-y-3">
@@ -512,7 +523,9 @@ function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
       {(detail.relatives?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-2">
           {detail.relatives.map((r) => (
-            <span key={r} className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">{r}</span>
+            <span key={r} className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">
+              {formatRelative(r)}
+            </span>
           ))}
         </div>
       )}

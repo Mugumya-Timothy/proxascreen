@@ -5,14 +5,14 @@ import { toast } from 'sonner'
 import RiskBadge from '../../components/RiskBadge'
 import PatientDetailModal from '../../components/PatientDetailModal'
 import AddPatientModal from '../../components/AddPatientModal'
-import { usePatients, useBulkImportPatients } from '../../hooks/usePatients'
+import { usePatients, useBulkImportPatients, useDeletePatient, useBulkDeletePatients } from '../../hooks/usePatients'
 import type { Patient, RiskLevel, BulkImportResult } from '../../types'
 
 // ── Sample CSV content ────────────────────────────────────────────────────────
 
-const SAMPLE_CSV = `full_name,age,date_of_submission,bmi,smoker,diet_type,physical_activity_level,alcohol_consumption,family_history,regular_health_checkup,prostate_exam_done
-John Smith,55,2026-03-27,27.5,false,mixed,moderate,no,false,true,false
-James Brown,62,2026-03-27,31.2,true,fatty,low,moderate,true,false,false
+const SAMPLE_CSV = `full_name,age,date_of_submission,bmi,smoker,diet_type,physical_activity_level,alcohol_consumption,family_history_relatives,regular_health_checkup,prostate_exam_done,symptoms
+John Smith,55,2026-03-27,27.5,false,mixed,moderate,no,,true,false,
+James Brown,62,2026-03-27,31.2,true,fatty,low,moderate,father|brother,false,false,"{""haematuria"":""Present"",""bone_pain"":""Present""}"
 `
 
 function downloadSampleCSV() {
@@ -34,9 +34,11 @@ type RiskFilter = 'all' | RiskLevel
 export default function PatientsPage() {
   const [search, setSearch]               = useState('')
   const [riskFilter, setRiskFilter]       = useState<RiskFilter>('all')
-  const [showBulkModal, setShowBulkModal] = useState(false)
+  const [showBulkModal, setShowBulkModal]   = useState(false)
   const [showAddPatient, setShowAddPatient] = useState(false)
-  const [selectedId, setSelectedId]       = useState<string | null>(null)
+  const [selectedId, setSelectedId]         = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget]     = useState<{ id: string; name: string; number: string } | null>(null)
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
 
   const { data: patients = [], isLoading, isError } = usePatients()
 
@@ -91,6 +93,14 @@ export default function PatientsPage() {
             <UploadIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Bulk Import</span>
             <span className="sm:hidden">Import</span>
+          </button>
+          <button
+            onClick={() => setShowBulkDelete(true)}
+            className="btn-outline gap-1.5 text-red-600 hover:border-red-300 hover:bg-red-50"
+          >
+            <TrashIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Bulk Delete</span>
+            <span className="sm:hidden">Delete</span>
           </button>
           <button onClick={() => setShowAddPatient(true)} className="btn-primary gap-1.5">
             <PlusIcon className="h-4 w-4" />
@@ -194,7 +204,12 @@ export default function PatientsPage() {
               </tr>
             ) : (
               filtered.map(p => (
-                <PatientRow key={p.id} patient={p} onView={() => setSelectedId(p.id)} />
+                <PatientRow
+                  key={p.id}
+                  patient={p}
+                  onView={() => setSelectedId(p.id)}
+                  onDelete={() => setDeleteTarget({ id: p.id, name: p.full_name, number: p.patient_number })}
+                />
               ))
             )}
           </tbody>
@@ -209,7 +224,12 @@ export default function PatientsPage() {
           <EmptyState search={search} riskFilter={riskFilter} />
         ) : (
           filtered.map(p => (
-            <PatientCard key={p.id} patient={p} onView={() => setSelectedId(p.id)} />
+            <PatientCard
+              key={p.id}
+              patient={p}
+              onView={() => setSelectedId(p.id)}
+              onDelete={() => setDeleteTarget({ id: p.id, name: p.full_name, number: p.patient_number })}
+            />
           ))
         )}
       </div>
@@ -223,6 +243,18 @@ export default function PatientsPage() {
 
       {selectedId && (
         <PatientDetailModal base="/admin" patientId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          patient={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {showBulkDelete && (
+        <BulkDeleteModal onClose={() => setShowBulkDelete(false)} />
       )}
     </div>
   )
@@ -242,7 +274,7 @@ function getInitials(name: string) {
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
-function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => void }) {
+function PatientRow({ patient: p, onView, onDelete }: { patient: Patient; onView: () => void; onDelete: () => void }) {
   return (
     <tr
       className="group cursor-pointer transition-colors hover:bg-primary/[0.025]"
@@ -285,15 +317,24 @@ function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => vo
         <RiskBadge level={p.latest_risk_level as RiskLevel | null} />
       </td>
 
-      {/* Action */}
+      {/* Actions */}
       <td className="whitespace-nowrap px-5 py-4 text-right">
-        <button
-          onClick={e => { e.stopPropagation(); onView() }}
-          className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 ring-1 ring-gray-200 transition-all hover:bg-primary hover:text-white hover:ring-primary group-hover:ring-primary/30"
-        >
-          View
-          <ChevronRightSmIcon className="h-3 w-3" />
-        </button>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={e => { e.stopPropagation(); onView() }}
+            className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 ring-1 ring-gray-200 transition-all hover:bg-primary hover:text-white hover:ring-primary group-hover:ring-primary/30"
+          >
+            View
+            <ChevronRightSmIcon className="h-3 w-3" />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            className="inline-flex items-center justify-center rounded-lg bg-white p-1.5 text-red-400 ring-1 ring-gray-200 transition-all hover:bg-red-50 hover:text-red-600 hover:ring-red-200"
+            title="Delete patient"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -301,23 +342,21 @@ function PatientRow({ patient: p, onView }: { patient: Patient; onView: () => vo
 
 // ── Mobile patient card ───────────────────────────────────────────────────────
 
-function PatientCard({ patient: p, onView }: { patient: Patient; onView: () => void }) {
+function PatientCard({ patient: p, onView, onDelete }: { patient: Patient; onView: () => void; onDelete: () => void }) {
   return (
-    <button
-      onClick={onView}
-      className="w-full text-left rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-gray-100 flex items-center gap-4 transition-all hover:shadow-md hover:ring-primary/20 active:scale-[0.99]"
-    >
+    <div className="w-full rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 flex items-center gap-3 px-4 py-4 transition-all hover:shadow-md hover:ring-primary/20">
       {/* Avatar */}
       <div
         aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow"
+        onClick={onView}
+        className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs font-bold text-white shadow"
         style={{ background: 'linear-gradient(135deg, #5FB0E3 0%, #58C697 100%)' }}
       >
         {getInitials(p.full_name)}
       </div>
 
       {/* Info */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={onView}>
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold text-gray-900">{p.full_name}</p>
           <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
@@ -329,12 +368,18 @@ function PatientCard({ patient: p, onView }: { patient: Patient; onView: () => v
         </p>
       </div>
 
-      {/* Risk + chevron */}
+      {/* Risk + actions */}
       <div className="flex shrink-0 flex-col items-end gap-2">
         <RiskBadge level={p.latest_risk_level as RiskLevel | null} size="sm" />
-        <ChevronRightSmIcon className="h-3.5 w-3.5 text-gray-300" />
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          className="flex items-center justify-center rounded-lg p-1 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+          title="Delete patient"
+        >
+          <TrashIcon className="h-3.5 w-3.5" />
+        </button>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -716,5 +761,236 @@ function PatientsPageIcon({ className }: { className?: string }) {
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
+  )
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+    </svg>
+  )
+}
+
+// ── Single-patient delete confirmation ────────────────────────────────────────
+
+function DeleteConfirmModal({
+  patient,
+  onClose,
+  onConfirm,
+}: {
+  patient: { id: string; name: string; number: string }
+  onClose:  () => void
+  onConfirm: () => void
+}) {
+  const { mutate, isPending } = useDeletePatient()
+
+  function handleDelete() {
+    mutate(patient.id, {
+      onSuccess: () => {
+        toast.success(`${patient.name} has been deleted`)
+        onConfirm()
+      },
+      onError: (err) => {
+        toast.error('Delete failed', {
+          description: err instanceof Error ? err.message : 'Please try again',
+        })
+      },
+    })
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+            <TrashIcon className="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Delete Patient</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-semibold text-gray-800">{patient.name}</span>{' '}
+              (<span className="font-mono text-xs text-primary">{patient.number}</span>)?
+              This will also remove all their assessments and cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-3">
+          <button onClick={onClose} className="btn-outline" disabled={isPending}>
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-60"
+          >
+            {isPending ? 'Deleting…' : 'Delete Patient'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// ── Bulk delete modal ─────────────────────────────────────────────────────────
+
+type BulkDeleteMode = 'numbers' | 'range' | 'uuids'
+
+function BulkDeleteModal({ onClose }: { onClose: () => void }) {
+  const [mode, setMode]         = useState<BulkDeleteMode>('numbers')
+  const [input, setInput]       = useState('')
+  const [rangeFrom, setFrom]    = useState('')
+  const [rangeTo, setTo]        = useState('')
+
+  const { mutate, isPending } = useBulkDeletePatients()
+
+  function buildRequest() {
+    if (mode === 'numbers') {
+      const nums = input.split(',').map(s => s.trim()).filter(Boolean)
+      return { patient_numbers: nums }
+    }
+    if (mode === 'range') {
+      return { range_from: rangeFrom.trim(), range_to: rangeTo.trim() }
+    }
+    const ids = input.split(',').map(s => s.trim()).filter(Boolean)
+    return { ids }
+  }
+
+  function handleSubmit() {
+    const req = buildRequest()
+    mutate(req, {
+      onSuccess: (data) => {
+        toast.success(`${data.deleted} patient${data.deleted !== 1 ? 's' : ''} deleted`)
+        onClose()
+      },
+      onError: (err) => {
+        toast.error('Bulk delete failed', {
+          description: err instanceof Error ? err.message : 'Please try again',
+        })
+      },
+    })
+  }
+
+  const isValid =
+    (mode === 'numbers' && input.trim().length > 0) ||
+    (mode === 'range'   && rangeFrom.trim().length > 0 && rangeTo.trim().length > 0) ||
+    (mode === 'uuids'   && input.trim().length > 0)
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Bulk Delete Patients</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Permanently removes patients and all their assessments</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Mode selector */}
+          <div className="flex rounded-xl border border-gray-200 p-1 gap-1">
+            {([
+              { key: 'numbers' as const, label: 'Patient Numbers' },
+              { key: 'range'   as const, label: 'Number Range'    },
+              { key: 'uuids'   as const, label: 'UUIDs'           },
+            ] as { key: BulkDeleteMode; label: string }[]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => { setMode(key); setInput(''); setFrom(''); setTo('') }}
+                className={[
+                  'flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                  mode === key
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Input area */}
+          {mode === 'range' ? (
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-gray-600">From</label>
+                <input
+                  className="input mt-1"
+                  placeholder="e.g. P001"
+                  value={rangeFrom}
+                  onChange={e => setFrom(e.target.value)}
+                />
+              </div>
+              <span className="mt-5 text-gray-400">→</span>
+              <div className="flex-1">
+                <label className="text-xs font-medium text-gray-600">To</label>
+                <input
+                  className="input mt-1"
+                  placeholder="e.g. P050"
+                  value={rangeTo}
+                  onChange={e => setTo(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                {mode === 'numbers'
+                  ? 'Patient numbers (comma-separated)'
+                  : 'Patient UUIDs (comma-separated)'}
+              </label>
+              <textarea
+                className="input mt-1 min-h-[80px] resize-y font-mono text-xs"
+                placeholder={
+                  mode === 'numbers'
+                    ? 'e.g. P001, P002, P015'
+                    : 'e.g. uuid1, uuid2, uuid3'
+                }
+                value={input}
+                onChange={e => setInput(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 ring-1 ring-red-200">
+            ⚠ This action is <strong>permanent</strong>. All assessments for the deleted patients will also be removed.
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-gray-100 px-6 py-4">
+          <button
+            onClick={handleSubmit}
+            disabled={!isValid || isPending}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-60"
+          >
+            <TrashIcon className="h-4 w-4" />
+            {isPending ? 'Deleting…' : 'Delete Patients'}
+          </button>
+          <button onClick={onClose} className="btn-outline flex-1">Cancel</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

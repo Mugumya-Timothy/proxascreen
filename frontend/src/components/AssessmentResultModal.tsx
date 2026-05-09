@@ -166,6 +166,9 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
             </div>
           )}
 
+          {/* Urgent symptom alert */}
+          <UrgentSymptomAlert rawSymptoms={rawSymptoms} />
+
           {/* Risk gauge */}
           <RiskGauge
             riskLevel={finalRisk}
@@ -376,6 +379,47 @@ export default function AssessmentResultModal({ assessment, onClose }: Props) {
   )
 }
 
+// ── Urgent symptom alert ──────────────────────────────────────────────────────
+
+const URGENT_SYMPTOM_KEYS = new Set([
+  'urinary_retention', 'haematuria', 'bone_pain', 'leg_weakness',
+])
+
+const URGENT_DISPLAY_LABELS: Record<string, string> = {
+  urinary_retention: 'Urinary retention',
+  haematuria:        'Haematuria (blood in urine)',
+  bone_pain:         'Bone pain (generalised or localised)',
+  leg_weakness:      'Leg weakness or paralysis',
+}
+
+function UrgentSymptomAlert({ rawSymptoms }: { rawSymptoms: Record<string, string> | null }) {
+  if (!rawSymptoms) return null
+  const urgent = Object.entries(rawSymptoms)
+    .filter(([key, status]) => URGENT_SYMPTOM_KEYS.has(key) && status === 'Present')
+    .map(([key]) => URGENT_DISPLAY_LABELS[key] ?? key)
+  if (urgent.length === 0) return null
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-700">
+        Urgent Symptom Alert
+      </p>
+      <p className="mt-1 text-sm text-red-700">
+        High-priority symptoms were recorded for this assessment and should be reviewed promptly.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {urgent.map((label) => (
+          <span
+            key={label}
+            className="inline-flex items-center rounded-full border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700"
+          >
+            ⚠ {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Assessment Summary (Section a) ────────────────────────────────────────────
 
 function AssessmentSummary({
@@ -463,6 +507,17 @@ function AssessmentSummary({
 
 // ── Family History Section (Section b) ───────────────────────────────────────
 
+const RELATIVE_LABELS: Record<string, string> = {
+  father:               'Father',
+  brother:              'Brother',
+  paternal_grandfather: 'Paternal Grandfather',
+  maternal_grandfather: 'Maternal Grandfather',
+}
+
+function formatRelative(key: string): string {
+  return RELATIVE_LABELS[key] ?? key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
 function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
   return (
     <div className="space-y-3">
@@ -481,7 +536,7 @@ function FamilyHistorySection({ detail }: { detail: FamilyHistoryDetail }) {
         <div className="flex flex-wrap gap-2">
           {detail.relatives.map((r) => (
             <span key={r} className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">
-              {r}
+              {formatRelative(r)}
             </span>
           ))}
         </div>

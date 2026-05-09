@@ -82,6 +82,8 @@ func Register(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config) error {
 	admin.GET("/clinicians/:id", clinicianHandler.GetClinician)
 	admin.DELETE("/clinicians/:id", clinicianHandler.DeleteClinician)
 	admin.POST("/patients/bulk-import", bulkImportHandler.BulkImportPatients)
+	admin.DELETE("/patients/bulk", patientHandler.BulkDeletePatients)
+	admin.DELETE("/patients/:id", patientHandler.DeletePatient)
 	admin.GET("/dashboard/stats", dashboardHandler.GetStats)
 
 	return nil

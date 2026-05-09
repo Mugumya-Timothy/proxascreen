@@ -126,6 +126,82 @@ func (s *PatientService) ListPatients(ctx context.Context) ([]Patient, error) {
 	return patients, rows.Err()
 }
 
+// DeletePatient hard-deletes a patient and all their assessments by UUID.
+func (s *PatientService) DeletePatient(ctx context.Context, id string) error {
+	tag, err := s.db.Exec(ctx, `DELETE FROM patients WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("delete patient: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// BulkDeleteParams holds the criteria for a bulk-delete operation.
+// Exactly one of IDs or PatientNumbers should be populated.
+type BulkDeleteParams struct {
+	IDs            []string // UUIDs
+	PatientNumbers []string // e.g. ["P001", "P002"]
+}
+
+// BulkDeleteResult summarises the outcome of a bulk-delete request.
+type BulkDeleteResult struct {
+	Deleted int `json:"deleted"`
+}
+
+// BulkDeletePatients deletes all patients that match the supplied criteria.
+// ListPatientNumbersInRange returns patient_numbers between rangeFrom and rangeTo (inclusive),
+// ordered numerically by the integer suffix (e.g. "P001" → 1).
+func (s *PatientService) ListPatientNumbersInRange(ctx context.Context, rangeFrom, rangeTo string) ([]string, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT patient_number FROM patients
+		WHERE CAST(SUBSTRING(patient_number FROM 2) AS INTEGER)
+		      BETWEEN CAST(SUBSTRING($1 FROM 2) AS INTEGER)
+		          AND CAST(SUBSTRING($2 FROM 2) AS INTEGER)
+		ORDER BY CAST(SUBSTRING(patient_number FROM 2) AS INTEGER)
+	`, rangeFrom, rangeTo)
+	if err != nil {
+		return nil, fmt.Errorf("list patient numbers in range: %w", err)
+	}
+	defer rows.Close()
+
+	var nums []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		nums = append(nums, n)
+	}
+	return nums, rows.Err()
+}
+
+func (s *PatientService) BulkDeletePatients(ctx context.Context, p BulkDeleteParams) (*BulkDeleteResult, error) {
+	var tag interface{ RowsAffected() int64 }
+	var err error
+
+	switch {
+	case len(p.IDs) > 0:
+		tag, err = s.db.Exec(ctx,
+			`DELETE FROM patients WHERE id = ANY($1::uuid[])`,
+			p.IDs,
+		)
+	case len(p.PatientNumbers) > 0:
+		tag, err = s.db.Exec(ctx,
+			`DELETE FROM patients WHERE patient_number = ANY($1::text[])`,
+			p.PatientNumbers,
+		)
+	default:
+		return nil, fmt.Errorf("no IDs or patient numbers provided")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("bulk delete patients: %w", err)
+	}
+	return &BulkDeleteResult{Deleted: int(tag.RowsAffected())}, nil
+}
+
 func (s *PatientService) GetPatient(ctx context.Context, id string) (*Patient, error) {
 	var p Patient
 	err := s.db.QueryRow(ctx, `

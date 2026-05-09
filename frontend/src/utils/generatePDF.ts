@@ -43,6 +43,17 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+const RELATIVE_LABELS_PDF: Record<string, string> = {
+  father:               'Father',
+  brother:              'Brother',
+  paternal_grandfather: 'Paternal Grandfather',
+  maternal_grandfather: 'Maternal Grandfather',
+}
+
+function formatRelativePDF(key: string): string {
+  return RELATIVE_LABELS_PDF[key] ?? key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
 /**
  * If the content that follows won't fit on the current page, inserts a new
  * page and returns the reset y; otherwise returns y unchanged.
@@ -510,7 +521,7 @@ export function generateAssessmentPDF(
       ['Diet Type',                cap(assessment.diet_type)],
       ['Physical Activity Level',  cap(assessment.physical_activity_level)],
       ['Family Hx Score',          fhDetail ? fhDetail.score_display : (assessment.family_history_score ?? 0).toFixed(2) + ' / 1.00'],
-      ...(fhDetail?.relatives?.length ? [['Relatives', fhDetail.relatives.join(', ')]] : []),
+      ...(fhDetail?.relatives?.length ? [['Relatives', fhDetail.relatives.map(formatRelativePDF).join(', ')]] : []),
       ['Regular Health Checkup',   assessment.regular_health_checkup ? 'Yes' : 'No'],
       ['Prostate Exam Done',       assessment.prostate_exam_done ? 'Yes' : 'No'],
     ],
@@ -525,75 +536,86 @@ export function generateAssessmentPDF(
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(156, 163, 175)
-  doc.text('PRESENTING SYMPTOMS', margin, y)
-  y += 5
+  doc.text('PRESENTING SYMPTOMS ASSESSMENT', margin, y)
+  y += 4
 
-  if (presentingSymptoms.length > 0) {
-    const urgentCount  = presentingSymptoms.filter(s => s.urgent).length
-    const normalCount  = presentingSymptoms.length - urgentCount
+  {
+    const symptomTableBody = SYMPTOM_ORDER_PDF.map((sym, idx) => {
+      const status    = rawSymptoms?.[sym.key] ?? 'Not Documented'
+      const isPresent = status === 'Present'
+      const isAbsent  = status === 'Absent'
+      const isNotDoc  = status === 'Not Documented'
 
-    // Summary bar
-    const barW = pageW - margin * 2
-    doc.setFillColor(249, 250, 251)
-    doc.setDrawColor(229, 231, 235)
-    doc.setLineWidth(0.3)
-    doc.roundedRect(margin, y, barW, 10, 2, 2, 'FD')
+      return [
+        {
+          content: `${idx + 1}. ${sym.urgent ? '△ ' : ''}${sym.display}`,
+          styles: {
+            fontStyle:  sym.urgent ? 'bold' : 'normal',
+            textColor:  sym.urgent ? [153, 27, 27] : [31, 41, 55],
+          },
+        },
+        {
+          content: isPresent ? 'Yes' : '',
+          styles: {
+            halign:    'center',
+            fillColor: isPresent ? [239, 68, 68]    : [255, 255, 255],
+            textColor: isPresent ? [255, 255, 255]  : [209, 213, 219],
+            fontStyle: isPresent ? 'bold' : 'normal',
+          },
+        },
+        {
+          content: isAbsent ? 'Yes' : '',
+          styles: {
+            halign:    'center',
+            fillColor: isAbsent ? [187, 247, 208]   : [255, 255, 255],
+            textColor: isAbsent ? [21, 128, 61]     : [209, 213, 219],
+            fontStyle: isAbsent ? 'bold' : 'normal',
+          },
+        },
+        {
+          content: isNotDoc ? 'Yes' : '',
+          styles: {
+            halign:    'center',
+            fillColor: isNotDoc ? [254, 249, 195]   : [255, 255, 255],
+            textColor: isNotDoc ? [161, 98, 7]      : [209, 213, 219],
+            fontStyle: isNotDoc ? 'bold' : 'normal',
+          },
+        },
+      ]
+    })
 
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(17, 24, 39)
-    doc.text(`${presentingSymptoms.length} symptom${presentingSymptoms.length !== 1 ? 's' : ''} reported`, margin + 4, y + 6.5)
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      head: [[
+        { content: 'Symptom / Complaint',
+          styles: { fillColor: [13, 46, 69], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 } },
+        { content: 'Present',
+          styles: { fillColor: [13, 46, 69], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' } },
+        { content: 'Absent',
+          styles: { fillColor: [13, 46, 69], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' } },
+        { content: 'Not Documented',
+          styles: { fillColor: [13, 46, 69], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' } },
+      ]],
+      body: symptomTableBody as any,
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 32 },
+      },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+    })
 
-    let badgeX = margin + barW - 4
-    if (normalCount > 0) {
-      const label = `${normalCount} standard`
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(30, 58, 138)
-      doc.text(label, badgeX, y + 6.5, { align: 'right' })
-      badgeX -= doc.getTextWidth(label) + 8
-    }
-    if (urgentCount > 0) {
-      const label = `${urgentCount} urgent`
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(220, 38, 38)
-      doc.text(label, badgeX, y + 6.5, { align: 'right' })
-    }
-    y += 14
+    y = (doc as any).lastAutoTable.finalY + 3
 
-    // Urgent symptoms first
-    const urgents = presentingSymptoms.filter(s => s.urgent)
-    const normals = presentingSymptoms.filter(s => !s.urgent)
-
-    if (urgents.length > 0) {
-      doc.setFontSize(7.5)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(220, 38, 38)
-      doc.text('⚠ Urgent / High-Priority', margin, y)
-      y += 4
-      y = drawSymptomsGrid(doc, y, margin, pageW, pageH, urgents)
-      y += 3
-    }
-
-    if (normals.length > 0) {
-      doc.setFontSize(7.5)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(37, 99, 235)
-      doc.text('Standard Symptoms', margin, y)
-      y += 4
-      y = drawSymptomsGrid(doc, y, margin, pageW, pageH, normals)
-    }
-  } else {
-    doc.setFillColor(249, 250, 251)
-    doc.setDrawColor(229, 231, 235)
-    doc.setLineWidth(0.3)
-    doc.roundedRect(margin, y, pageW - margin * 2, 10, 2, 2, 'FD')
-    doc.setFontSize(9)
+    // Legend
+    doc.setFontSize(7.5)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(156, 163, 175)
-    doc.text('No presenting symptoms were reported for this assessment.', margin + 4, y + 6.5)
-    y += 10
+    doc.setTextColor(107, 114, 128)
+    doc.text('△ = High-priority symptom', margin, y)
+    y += 6
   }
 
   y += 6

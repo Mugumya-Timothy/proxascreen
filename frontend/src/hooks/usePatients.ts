@@ -4,7 +4,10 @@ import {
   getPatient,
   createPatient,
   bulkImportPatients,
+  deletePatient,
+  bulkDeletePatients,
 } from '../services/patients'
+import type { BulkDeleteRequest } from '../services/patients'
 import type { CreatePatientRequest } from '../types'
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -72,6 +75,28 @@ export function useBulkImportPatients() {
 
   return useMutation({
     mutationFn: (file: File) => bulkImportPatients(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PATIENT_KEYS.list })
+    },
+  })
+}
+
+export function useDeletePatient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deletePatient(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PATIENT_KEYS.list })
+    },
+  })
+}
+
+export function useBulkDeletePatients() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (req: BulkDeleteRequest) => bulkDeletePatients(req),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PATIENT_KEYS.list })
     },

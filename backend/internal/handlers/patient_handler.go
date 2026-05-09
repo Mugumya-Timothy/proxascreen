@@ -118,6 +118,72 @@ func (h *PatientHandler) ListPatientAssessments(c *gin.Context) {
 	c.JSON(http.StatusOK, patient.Assessments)
 }
 
+// DeletePatient removes a single patient record by UUID (admin-only).
+func (h *PatientHandler) DeletePatient(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.patientService.DeletePatient(c.Request.Context(), id); err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "patient not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "patient deleted"})
+}
+
+type bulkDeleteRequest struct {
+	// IDs is a list of patient UUIDs to delete.
+	IDs []string `json:"ids"`
+	// PatientNumbers is a list of patient_number strings (e.g. "P001").
+	PatientNumbers []string `json:"patient_numbers"`
+	// RangeFrom and RangeTo allow specifying a patient_number range (e.g. "P001" to "P050").
+	RangeFrom string `json:"range_from"`
+	RangeTo   string `json:"range_to"`
+}
+
+// BulkDeletePatients deletes multiple patients by IDs, patient_numbers, or a range (admin-only).
+func (h *PatientHandler) BulkDeletePatients(c *gin.Context) {
+	var req bulkDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	params := services.BulkDeleteParams{
+		IDs:            req.IDs,
+		PatientNumbers: req.PatientNumbers,
+	}
+
+	// Resolve range_from/range_to into a PatientNumbers list via DB query.
+	if req.RangeFrom != "" && req.RangeTo != "" {
+		var nums []string
+		rows, err := h.patientService.ListPatientNumbersInRange(c.Request.Context(), req.RangeFrom, req.RangeTo)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		nums = rows
+		if len(params.PatientNumbers) > 0 {
+			params.PatientNumbers = append(params.PatientNumbers, nums...)
+		} else {
+			params.PatientNumbers = nums
+		}
+	}
+
+	if len(params.IDs) == 0 && len(params.PatientNumbers) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provide ids, patient_numbers, or range_from+range_to"})
+		return
+	}
+
+	result, err := h.patientService.BulkDeletePatients(c.Request.Context(), params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 // BulkImportPatients is handled separately in bulk_import_handler.go.
 func (h *PatientHandler) BulkImportPatients(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "use /patients/bulk-import"})
