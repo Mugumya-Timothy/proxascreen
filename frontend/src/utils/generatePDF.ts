@@ -548,7 +548,7 @@ export function generateAssessmentPDF(
 
       return [
         {
-          content: `${idx + 1}. ${sym.urgent ? '△ ' : ''}${sym.display}`,
+          content: `${idx + 1}. ${sym.urgent ? '[!] ' : ''}${sym.display}`,
           styles: {
             fontStyle:  sym.urgent ? 'bold' : 'normal',
             textColor:  sym.urgent ? [153, 27, 27] : [31, 41, 55],
@@ -614,7 +614,7 @@ export function generateAssessmentPDF(
     doc.setFontSize(7.5)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(107, 114, 128)
-    doc.text('△ = High-priority symptom', margin, y)
+    doc.text('[!] = High-priority symptom', margin, y)
     y += 6
   }
 
